@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"SET_PPE_PS2_SAR_STATE_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"ppe_amps_cfs.ps2.ps_sar_state.sar_cmd", "trickType":"uint", "cfsVar":"sarSTATE", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE86",
+    "commandCode":1,
+    "flowDirection":2
+}

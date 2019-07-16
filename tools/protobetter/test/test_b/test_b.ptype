@@ -1,0 +1,34 @@
+[
+    {
+        "typeName":"LilBitty_b",
+        "headerFileName":"protobetter_generated.h",
+
+        "members":
+        [
+            {"name":"a", "type":"float"},
+            {"name":"b", "type":"int64_t", "bits":5},
+            {"name":"c", "type":"int64_t", "bits":6},
+            {"name":"d", "type":"int32_t", "bits":31},
+            {"name":"e", "type":"int32_t", "bits":8},
+            {"name":"f", "type":"int8_t", "arraylen":"INT8_LEN"}
+        ]
+    },
+    {
+        "typeName":"Bittylicious_b",
+        "headerFileName":"protobetter_generated.h",
+
+        "members":
+        [
+            {"name":"header", "type":"bytearray", "arraylen":10},
+            {"name":"a", "type":"int16_t", "bits":7},
+            {"name":"b", "type":"uint16_t", "bits":8},
+            {"name":"c", "type":"uint16_t", "bits":5},
+            {"name":"d", "type":"int32_t", "arraylen":5},
+            {"name":"e", "type":"float"},
+            {"name":"lilBitty", "type":"LilBitty_b"},
+            {"name":"f", "type":"int16_t"},
+            {"name":"g", "type":"double"},
+            {"name":"h", "type":"int64_t"}
+        ]
+    }
+]

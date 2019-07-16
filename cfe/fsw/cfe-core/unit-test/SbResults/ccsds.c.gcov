@@ -1,0 +1,115 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/sb/ccsds.c
+        -:    0:Graph:ccsds.gcno
+        -:    0:Data:ccsds.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:/******************************************************************************
+        -:    2:** File:  ccsds.c
+        -:    3:**
+        -:    4:**      Copyright (c) 2004-2012, United States government as represented by the
+        -:    5:**      administrator of the National Aeronautics Space Administration.
+        -:    6:**      All rights reserved. This software(cFE) was created at NASA's Goddard
+        -:    7:**      Space Flight Center pursuant to government contracts.
+        -:    8:**
+        -:    9:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   10:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   11:**
+        -:   12:** Purpose:
+        -:   13:**      Functions for working with CCSDS headers.
+        -:   14:**
+        -:   15:******************************************************************************/
+        -:   16:
+        -:   17:/*
+        -:   18:** Include Files
+        -:   19:*/
+        -:   20:
+        -:   21:#include "common_types.h"
+        -:   22:#include "ccsds.h"
+        -:   23:#include "osapi.h"
+        -:   24:#include "cfe_psp.h"
+        -:   25:
+        -:   26:/******************************************************************************
+        -:   27:**  Function:  CCSDS_LoadCheckSum()
+        -:   28:**
+        -:   29:**  Purpose:
+        -:   30:**    Compute and load a checksum for a CCSDS command packet that has a
+        -:   31:**    secondary header.
+        -:   32:**
+        -:   33:**  Arguments:
+        -:   34:**    PktPtr   : Pointer to header of command packet.  The packet must
+        -:   35:**               have a secondary header and the length in the primary
+        -:   36:**               header must be correct.  The checksum field in the packet
+        -:   37:**               will be modified.
+        -:   38:**
+        -:   39:**  Return:
+        -:   40:**    (none)
+        -:   41:*/
+        -:   42:
+        1:   43:void CCSDS_LoadCheckSum (CCSDS_CommandPacket_t *PktPtr)
+        -:   44:{
+        -:   45:   uint8    CheckSum;
+        -:   46:
+        -:   47:   /* Clear the checksum field so the new checksum is correct. */
+        1:   48:   CCSDS_WR_CHECKSUM(PktPtr->Sec, 0);
+        -:   49:
+        -:   50:   /* Compute and load new checksum. */
+        1:   51:   CheckSum = CCSDS_ComputeCheckSum(PktPtr);
+        1:   52:   CCSDS_WR_CHECKSUM(PktPtr->Sec, CheckSum);
+        -:   53:
+        1:   54:} /* END CCSDS_LoadCheckSum() */
+        -:   55:
+        -:   56:
+        -:   57:/******************************************************************************
+        -:   58:**  Function:  CCSDS_ValidCheckSum()
+        -:   59:**
+        -:   60:**  Purpose:
+        -:   61:**    Determine whether a checksum in a command packet is valid.
+        -:   62:**
+        -:   63:**  Arguments:
+        -:   64:**    PktPtr   : Pointer to header of command packet.  The packet must
+        -:   65:**               have a secondary header and the length in the primary
+        -:   66:**               header must be correct.
+        -:   67:**
+        -:   68:**  Return:
+        -:   69:**    TRUE if checksum of packet is valid; FALSE if not.
+        -:   70:**    A valid checksum is 0.
+        -:   71:*/
+        -:   72:
+        3:   73:boolean CCSDS_ValidCheckSum (CCSDS_CommandPacket_t *PktPtr)
+        -:   74:{
+        -:   75:
+        3:   76:   return (CCSDS_ComputeCheckSum(PktPtr) == 0);
+        -:   77:
+        -:   78:} /* END CCSDS_ValidCheckSum() */
+        -:   79:
+        -:   80:
+        -:   81:/******************************************************************************
+        -:   82:**  Function:  CCSDS_ComputeCheckSum()
+        -:   83:**
+        -:   84:**  Purpose:
+        -:   85:**    Compute the checksum for a command packet.  The checksum is the XOR of
+        -:   86:**    all bytes in the packet; a valid checksum is zero.
+        -:   87:**
+        -:   88:**  Arguments:
+        -:   89:**    PktPtr   : Pointer to header of command packet.  The packet must
+        -:   90:**               have a secondary header and the length in the primary
+        -:   91:**               header must be correct.
+        -:   92:**
+        -:   93:**  Return:
+        -:   94:**    TRUE if checksum of packet is valid; FALSE if not.
+        -:   95:*/
+        -:   96:
+        4:   97:uint8 CCSDS_ComputeCheckSum (CCSDS_CommandPacket_t *PktPtr)
+        -:   98:{
+        4:   99:   uint16   PktLen   = CCSDS_RD_LEN(PktPtr->SpacePacket.Hdr);
+        4:  100:   uint8   *BytePtr  = (uint8 *)PktPtr;
+        -:  101:   uint8    CheckSum;
+        -:  102:
+        4:  103:   CheckSum = 0xFF;
+        4:  104:   while (PktLen--)  CheckSum ^= *(BytePtr++);
+        -:  105:
+        4:  106:   return CheckSum;
+        -:  107:
+        -:  108:} /* END CCSDS_ComputeCheckSum() */
+        -:  109:
+        -:  110:/*****************************************************************************/

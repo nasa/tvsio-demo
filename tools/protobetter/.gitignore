@@ -1,0 +1,15 @@
+*.pgsql
+a.out
+*/a.out
+cfs_cdd/
+*$py.class
+*.swp
+*.o
+test/test_a/test_a
+test/test_b/test_b
+test/test_c/test_c
+*.pyc
+.vscode
+**/build/**
+**/protobetter_generated.c
+**/protobetter_generated.h

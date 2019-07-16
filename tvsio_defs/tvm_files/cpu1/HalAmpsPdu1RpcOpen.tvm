@@ -1,0 +1,11 @@
+{
+    "cfsStructureType":"SET_HAL_PDU1_RPC_CHANNEL_OPEN_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"hal_amps_cfs.pdu1.pdu_rpc_open.rpc_open", "trickType":"uint", "cfsVar":"FORCERPCOFF", "cfsType":"uint8"},
+        {"trickVar":"hal_amps_cfs.pdu1.pdu_rpc_open.rpc_channel", "trickType":"uint", "cfsVar":"rpcCHANNEL", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE4B",
+    "commandCode":2,
+    "flowDirection":2
+}

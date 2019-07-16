@@ -1,0 +1,27 @@
+\section*{Interface Data}
+
+The S\-B\-N application must be configured with a file of modules to support. The Sbn\-Module\-Data.\-dat file must include the protocol I\-D, the protocol name, the path to the protocol shared library, and the name of a structure containing pointers to the required S\-B\-N functions. For more information on how modules work, refer to \hyperlink{cfssbnmod}{C\-F\-S Software Bus Network Interface Modules}.
+
+\section*{Peer Data}
+
+The S\-B\-N application must also be configured with a file of peers with which to communicate. The Sbn\-Peer\-Data.\-dat file must include, for each peer, the peer name, processor I\-D, protocol I\-D, and spacecraft I\-D. Other interface-\/specific parameters may follow. Depending on the interface types, the peer data file may or may not be the same for all peers.
+
+\section*{Variables}
+
+The following configuration constants can adjusted prior to building the application if the defaults are insufficient.
+
+\begin{TabularC}{2}
+\hline
+{\bfseries Variable} &{\bfseries Default Value} \\\cline{1-2}
+S\-B\-N\-\_\-\-M\-A\-I\-N\-\_\-\-L\-O\-O\-P\-\_\-\-D\-E\-L\-A\-Y &1 second \\\cline{1-2}
+S\-B\-N\-\_\-\-T\-I\-M\-E\-O\-U\-T\-\_\-\-C\-Y\-C\-L\-E\-S &5 \\\cline{1-2}
+S\-B\-N\-\_\-\-V\-O\-L\-\_\-\-P\-E\-E\-R\-\_\-\-F\-I\-L\-E\-N\-A\-M\-E &/ram/\-Sbn\-Peer\-Data.dat \\\cline{1-2}
+S\-B\-N\-\_\-\-N\-O\-N\-V\-O\-L\-\_\-\-P\-E\-E\-R\-\_\-\-F\-I\-L\-E\-N\-A\-M\-E &/cf/\-Sbn\-Peer\-Data.dat \\\cline{1-2}
+S\-B\-N\-\_\-\-V\-O\-L\-\_\-\-M\-O\-D\-U\-L\-E\-\_\-\-F\-I\-L\-E\-N\-A\-M\-E &/ram/\-Sbn\-Module\-Data.dat \\\cline{1-2}
+S\-B\-N\-\_\-\-N\-O\-N\-V\-O\-L\-\_\-\-M\-O\-D\-U\-L\-E\-\_\-\-F\-I\-L\-E\-N\-A\-M\-E &/cf/\-Sbn\-Module\-Data.dat \\\cline{1-2}
+S\-B\-N\-\_\-\-M\-A\-X\-\_\-\-S\-U\-B\-S\-\_\-\-P\-E\-R\-\_\-\-P\-E\-E\-R &256 \\\cline{1-2}
+\end{TabularC}
+
+
+Next\-: \hyperlink{cfssbncons}{C\-F\-S Software Bus Network Constraints} \par
+ Prev\-: \hyperlink{cfssbntlm}{C\-F\-S Software Bus Network Telemetry} 

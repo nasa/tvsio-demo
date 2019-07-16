@@ -1,0 +1,369 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/evs/cfe_evs.c
+        -:    0:Programs:4
+        -:    1:/*
+        -:    2:**
+        -:    3:**  File Name: cfe_evs.c
+        -:    4:**  $Id: cfe_evs.c 1.8 2014/05/30 13:26:02GMT-05:00 lwalling Exp  $
+        -:    5:**
+        -:    6:**      Copyright (c) 2004-2012, United States government as represented by the 
+        -:    7:**      administrator of the National Aeronautics Space Administration.  
+        -:    8:**      All rights reserved. This software(cFE) was created at NASA's Goddard 
+        -:    9:**      Space Flight Center pursuant to government contracts.
+        -:   10:**
+        -:   11:**      This is governed by the NASA Open Source Agreement and may be used, 
+        -:   12:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   13:**
+        -:   14:**  Title: Event Services API library
+        -:   15:**
+        -:   16:**  Purpose: This module defines the library functions of the
+        -:   17:**           Event Services API
+        -:   18:**
+        -:   19:*/
+        -:   20:
+        -:   21:/* Include Files */
+        -:   22:#include "cfe_evs.h"         /* EVS library function definitions */
+        -:   23:#include "cfe_evs_task.h"    /* EVS internal definitions */
+        -:   24:#include "cfe_evs_utils.h"   /* EVS utility function definitions */
+        -:   25:#include "common_types.h"    /* Basic data types */
+        -:   26:#include "cfe_es.h"          /* Executive Service definitions */
+        -:   27:#include "cfe_error.h"       /* cFE error code definitions */
+        -:   28:
+        -:   29:#include <stdarg.h>
+        -:   30:#include <string.h>
+        -:   31:
+        -:   32:/* External Data */
+        -:   33:
+        -:   34:/* Local Function Prototypes */
+        -:   35:
+        -:   36:
+        -:   37:/* Function Definitions */
+        -:   38:
+        -:   39:/*
+        -:   40:**             Function Prologue
+        -:   41:**
+        -:   42:** Function Name:      CFE_EVS_Register
+        -:   43:**
+        -:   44:** Purpose:  This routine registers an application for receiving event services.
+        -:   45:**
+        -:   46:** Assumptions and Notes:
+        -:   47:**
+        -:   48:*/
+       18:   49:int32 CFE_EVS_Register (void *Filters, uint16 NumEventFilters, uint16 FilterScheme)
+        -:   50:{
+        -:   51:   uint16 FilterLimit;
+        -:   52:   uint16 i;
+       18:   53:   int32  Status = CFE_SUCCESS;
+       18:   54:   uint32 AppID = CFE_EVS_UNDEF_APPID;
+        -:   55:   CFE_EVS_BinFilter_t   *AppFilters;
+        -:   56:   EVS_AppData_t         *AppDataPtr;
+        -:   57:
+        -:   58:   /* Query and verify the caller's AppID */
+       18:   59:   Status = EVS_GetAppID(&AppID);
+        -:   60:
+       18:   61:   if (Status == CFE_SUCCESS)
+        -:   62:   {
+        -:   63:      /* Cleanup if already registered */
+       17:   64:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == TRUE)
+        -:   65:      {
+       11:   66:         memset(&CFE_EVS_GlobalData.AppData[AppID], 0, sizeof(EVS_AppData_t));
+        -:   67:      }
+        -:   68:
+        -:   69:      /* Verify filter arguments */
+       17:   70:      if (FilterScheme != CFE_EVS_EventFilter_BINARY)
+        -:   71:      {
+        1:   72:         Status = CFE_EVS_UNKNOWN_FILTER;
+        -:   73:      }
+       17:   74:      else if ((NumEventFilters != 0) && (Filters == NULL))
+        -:   75:      {
+        1:   76:         Status = CFE_ES_ERR_BUFFER;
+        -:   77:      }
+        -:   78:      else
+        -:   79:      {
+        -:   80:         /* Initialize application event data */
+       15:   81:         AppDataPtr = &CFE_EVS_GlobalData.AppData[AppID];
+       15:   82:         AppDataPtr->RegisterFlag = TRUE;
+       15:   83:         AppDataPtr->ActiveFlag   = TRUE;
+       15:   84:         AppDataPtr->EventCount   = 0;
+       15:   85:         AppDataPtr->EventTypesActiveFlag = CFE_PLATFORM_EVS_DEFAULT_TYPE_FLAG;
+        -:   86:
+        -:   87:         /* Set limit for number of provided filters */
+       15:   88:         if (NumEventFilters < CFE_PLATFORM_EVS_MAX_EVENT_FILTERS)
+        -:   89:         {
+       14:   90:            FilterLimit = NumEventFilters;
+        -:   91:         }
+        -:   92:         else
+        -:   93:         {
+        1:   94:            FilterLimit = CFE_PLATFORM_EVS_MAX_EVENT_FILTERS;
+        -:   95:         }
+        -:   96:
+       15:   97:         if (Filters != NULL)
+        -:   98:         {
+        3:   99:            AppFilters = (CFE_EVS_BinFilter_t *) Filters;
+        -:  100:
+        -:  101:            /* Copy provided filters */
+       13:  102:            for (i = 0; i < FilterLimit; i++)
+        -:  103:            {
+       10:  104:               AppDataPtr->BinFilters[i].EventID = AppFilters[i].EventID;
+       10:  105:               AppDataPtr->BinFilters[i].Mask    = AppFilters[i].Mask;
+       10:  106:               AppDataPtr->BinFilters[i].Count   = 0;
+        -:  107:            }
+        -:  108:         }
+        -:  109:
+        -:  110:         /* Initialize remainder of filters as unused */
+      125:  111:         for (i = FilterLimit; i < CFE_PLATFORM_EVS_MAX_EVENT_FILTERS; i++)
+        -:  112:         {
+      110:  113:            AppDataPtr->BinFilters[i].EventID = CFE_EVS_FREE_SLOT;
+      110:  114:            AppDataPtr->BinFilters[i].Mask    = 0;
+      110:  115:            AppDataPtr->BinFilters[i].Count   = 0;
+        -:  116:         }
+        -:  117:      }
+        -:  118:   }
+        -:  119:
+       18:  120:   return(Status);
+        -:  121:
+        -:  122:} /* End CFE_EVS_Register */
+        -:  123:
+        -:  124:
+        -:  125:/*
+        -:  126:**             Function Prologue
+        -:  127:**
+        -:  128:** Function Name:      CFE_EVS_Unregister
+        -:  129:**
+        -:  130:** Purpose:  This routine unregisters an application for receiving event services.
+        -:  131:**
+        -:  132:** Assumptions and Notes:
+        -:  133:**
+        -:  134:*/
+        5:  135:int32 CFE_EVS_Unregister(void)
+        -:  136:{
+        5:  137:   int32 Status = CFE_SUCCESS;
+        5:  138:   uint32 AppID = CFE_EVS_UNDEF_APPID;
+        -:  139:
+        -:  140:   /* Query and verify the caller's AppID */
+        5:  141:   Status = EVS_GetAppID(&AppID);
+        -:  142:
+        5:  143:   if (Status == CFE_SUCCESS)
+        -:  144:   {
+        -:  145:      /* Cleanup if already registered */
+        3:  146:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == TRUE)
+        -:  147:      {
+        2:  148:         memset(&CFE_EVS_GlobalData.AppData[AppID], 0, sizeof(EVS_AppData_t));
+        -:  149:      }
+        -:  150:   }
+        -:  151:
+        5:  152:   return(Status);
+        -:  153:
+        -:  154:} /* End CFE_EVS_Unregister */
+        -:  155:
+        -:  156:
+        -:  157:/*
+        -:  158:**             Function Prologue
+        -:  159:**
+        -:  160:** Function Name:      CFE_EVS_SendEvent
+        -:  161:**
+        -:  162:** Purpose:  This routine sends an event message, with message ID containing the current
+        -:  163:**           processor/box and task ID as well as the eventID.
+        -:  164:**
+        -:  165:** Assumptions and Notes:
+        -:  166:*/
+       42:  167:int32 CFE_EVS_SendEvent (uint16 EventID, uint16 EventType, const char *Spec, ... )
+        -:  168:{
+       42:  169:   int32              Status = CFE_SUCCESS;
+       42:  170:   uint32             AppID = CFE_EVS_UNDEF_APPID;
+        -:  171:   CFE_TIME_SysTime_t Time;
+        -:  172:   va_list            Ptr;
+        -:  173:
+        -:  174:   /* Query and verify the caller's AppID */
+       42:  175:   Status = EVS_GetAppID(&AppID);
+        -:  176:
+       42:  177:   if (Status == CFE_SUCCESS)
+        -:  178:   {
+       41:  179:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == FALSE)
+        -:  180:      {
+        -:  181:         /* Handler for events from apps not registered with EVS */
+        1:  182:         Status = EVS_NotRegistered(AppID);
+        -:  183:      }
+       40:  184:      else if (EVS_IsFiltered(AppID, EventID, EventType) == FALSE)
+        -:  185:      {
+        -:  186:          /* Get current spacecraft time */
+       32:  187:          Time = CFE_TIME_GetTime();
+        -:  188:
+        -:  189:          /* Send the event packets */
+       32:  190:          va_start(Ptr, Spec);
+       32:  191:          EVS_GenerateEventTelemetry(AppID, EventID, EventType, &Time, Spec, Ptr);
+       32:  192:          va_end(Ptr);
+        -:  193:      }
+        -:  194:   }
+        -:  195:
+       42:  196:   return(Status);
+        -:  197:
+        -:  198:} /* End CFE_EVS_SendEvent */
+        -:  199:
+        -:  200:
+        -:  201:/*
+        -:  202:**             Function Prologue
+        -:  203:**
+        -:  204:** Function Name:      CFE_EVS_SendEventWithAppID
+        -:  205:**
+        -:  206:** Purpose:  This routine sends an event message, with message ID containing the current
+        -:  207:**           processor/box and task ID as well as the eventID. Also forces the user to
+        -:  208:**           supply an AppID to be sent with the message.
+        -:  209:**
+        -:  210:** Assumptions and Notes:
+        -:  211:*/
+        5:  212:int32 CFE_EVS_SendEventWithAppID (uint16 EventID, uint16 EventType, uint32 AppID, const char *Spec, ... )
+        -:  213:{
+        5:  214:   int32              Status = CFE_SUCCESS;
+        -:  215:   CFE_TIME_SysTime_t Time;
+        -:  216:   va_list            Ptr;
+        -:  217:
+        5:  218:   if (AppID >= CFE_PLATFORM_ES_MAX_APPLICATIONS)
+        -:  219:   {
+        1:  220:      Status = CFE_EVS_APP_ILLEGAL_APP_ID;
+        -:  221:   }
+        4:  222:   else if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == FALSE)
+        -:  223:   {
+        -:  224:      /* Handler for events from apps not registered with EVS */
+        1:  225:      Status = EVS_NotRegistered(AppID);
+        -:  226:   }
+        3:  227:   else if (EVS_IsFiltered(AppID, EventID, EventType) == FALSE)
+        -:  228:   {
+        -:  229:      /* Get current spacecraft time */
+        2:  230:      Time = CFE_TIME_GetTime();
+        -:  231:
+        -:  232:      /* Send the event packets */
+        2:  233:      va_start(Ptr, Spec);
+        2:  234:      EVS_GenerateEventTelemetry(AppID, EventID, EventType, &Time, Spec, Ptr);
+        2:  235:      va_end(Ptr);
+        -:  236:   }
+        -:  237:
+        5:  238:   return Status;
+        -:  239:
+        -:  240:} /* End CFE_EVS_SendEventWithAppID */
+        -:  241:
+        -:  242:
+        -:  243:/*
+        -:  244:**             Function Prologue
+        -:  245:**
+        -:  246:** Function Name:      CFE_EVS_SendTimedEvent
+        -:  247:**
+        -:  248:** Purpose:  This routine sends a timed event message, with message ID containing the
+        -:  249:**           current processor/box and task ID as well as the eventID.
+        -:  250:**
+        -:  251:** Assumptions and Notes:
+        -:  252:*/
+        5:  253:int32 CFE_EVS_SendTimedEvent (CFE_TIME_SysTime_t Time, uint16 EventID, uint16 EventType, const char *Spec, ... )
+        -:  254:{
+        5:  255:   int32              Status = CFE_SUCCESS;
+        5:  256:   uint32             AppID = CFE_EVS_UNDEF_APPID;
+        -:  257:   va_list            Ptr;
+        -:  258:
+        -:  259:   /* Query and verify the caller's AppID */
+        5:  260:   Status = EVS_GetAppID(&AppID);
+        -:  261:
+        5:  262:   if (Status == CFE_SUCCESS)
+        -:  263:   {
+        4:  264:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == FALSE)
+        -:  265:      {
+        -:  266:         /* Handler for events from apps not registered with EVS */
+        1:  267:         Status = EVS_NotRegistered(AppID);
+        -:  268:      }
+        3:  269:      else if (EVS_IsFiltered(AppID, EventID, EventType) == FALSE)
+        -:  270:      {
+        -:  271:         /* Send the event packets */
+        2:  272:         va_start(Ptr, Spec);
+        2:  273:         EVS_GenerateEventTelemetry(AppID, EventID, EventType, &Time, Spec, Ptr);
+        2:  274:         va_end(Ptr);
+        -:  275:      }
+        -:  276:   }
+        -:  277:
+        5:  278:   return(Status);
+        -:  279:
+        -:  280:} /* End CFE_EVS_SendTimedEvent */
+        -:  281:
+        -:  282:
+        -:  283:/*
+        -:  284:**             Function Prologue
+        -:  285:**
+        -:  286:** Function Name:      CFE_EVS_ResetFilter
+        -:  287:**
+        -:  288:** Purpose:  This routine clears the filter counter for the calling application's given event_id.
+        -:  289:**
+        -:  290:** Assumptions and Notes:
+        -:  291:**
+        -:  292:*/
+        5:  293:int32 CFE_EVS_ResetFilter (int16 EventID)
+        -:  294:{
+        5:  295:   int32            Status = CFE_SUCCESS;
+        5:  296:   EVS_BinFilter_t *FilterPtr = NULL;
+        5:  297:   uint32           AppID = CFE_EVS_UNDEF_APPID;
+        -:  298:
+        -:  299:   /* Query and verify the caller's AppID */
+        5:  300:   Status = EVS_GetAppID(&AppID);
+        -:  301:
+        5:  302:   if (Status == CFE_SUCCESS)
+        -:  303:   {
+        4:  304:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == FALSE)
+        -:  305:      {
+        1:  306:         Status = CFE_EVS_APP_NOT_REGISTERED;
+        -:  307:      }
+        -:  308:      else
+        -:  309:      {
+        3:  310:         FilterPtr = EVS_FindEventID(EventID, CFE_EVS_GlobalData.AppData[AppID].BinFilters);
+        -:  311:
+        3:  312:         if (FilterPtr != NULL)
+        -:  313:         {
+        2:  314:            FilterPtr->Count = 0;
+        -:  315:         }
+        -:  316:         else
+        -:  317:         {
+        1:  318:            Status = CFE_EVS_EVT_NOT_REGISTERED;
+        -:  319:         }
+        -:  320:      }
+        -:  321:   }
+        -:  322:
+        5:  323:   return(Status);
+        -:  324:
+        -:  325:} /* End CFE_EVS_ResetFilter */
+        -:  326:
+        -:  327:
+        -:  328:/*
+        -:  329:**             Function Prologue
+        -:  330:**
+        -:  331:** Function Name:      CFE_EVS_ResetAllFilters
+        -:  332:**
+        -:  333:** Purpose:  This routine clears all filter counters for the calling application
+        -:  334:**
+        -:  335:** Assumptions and Notes:
+        -:  336:**
+        -:  337:*/
+        3:  338:int32 CFE_EVS_ResetAllFilters ( void )
+        -:  339:{
+        3:  340:   int32    Status = CFE_SUCCESS;
+        3:  341:   uint32   AppID = CFE_EVS_UNDEF_APPID;
+        -:  342:   uint32   i;
+        -:  343:
+        -:  344:   /* Get and verify caller's AppID */
+        3:  345:   Status = EVS_GetAppID(&AppID);
+        -:  346:
+        3:  347:   if (Status == CFE_SUCCESS)
+        -:  348:   {
+        2:  349:      if (CFE_EVS_GlobalData.AppData[AppID].RegisterFlag == FALSE)
+        -:  350:      {
+        1:  351:         Status = CFE_EVS_APP_NOT_REGISTERED;
+        -:  352:      }
+        -:  353:      else
+        -:  354:      {
+        9:  355:         for (i = 0; i < CFE_PLATFORM_EVS_MAX_EVENT_FILTERS; i++)
+        -:  356:         {
+        8:  357:            CFE_EVS_GlobalData.AppData[AppID].BinFilters[i].Count = 0;
+        -:  358:         }
+        -:  359:      }
+        -:  360:   }
+        -:  361:
+        3:  362:   return(Status);
+        -:  363:
+        -:  364:} /* End CFE_EVS_ResetAllFilters */
+        -:  365:
+        -:  366:
+        -:  367:/* End CFE_EVS.C */

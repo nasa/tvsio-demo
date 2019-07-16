@@ -1,0 +1,9 @@
+build
+build/*
+.cdskeyfile
+.cproject
+.reservedkeyfile
+.resetkeyfile
+*~
+*#
+.nfs*

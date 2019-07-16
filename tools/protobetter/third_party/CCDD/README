@@ -1,0 +1,3 @@
+This CCDD plugin provides protobetter integration by using the protobetter_compiler's ability to parse *.ptype file contents.  The CCDD plugin simply generates the json objects necessary to use the protobetter_compiler from the message definitions in CCDD as opposed to storing them as json strings in a *.ptype file.
+
+This can be run the same as any other python script can be run in CCDD.  For detailed information on running scripts in CCDD, please see CCDD docs.

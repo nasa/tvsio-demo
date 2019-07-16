@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"CLEAR_PPE_MBSU1_Output_Curr_Trip_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"ppe_amps_cfs.mbsu1.mbsu_clear_output_trip.output_bus", "trickType":"uint", "cfsVar":"OUTPUT_BUS", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE81",
+    "commandCode":5,
+    "flowDirection":2
+}

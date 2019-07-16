@@ -1,0 +1,11 @@
+{
+    "cfsStructureType":"SET_HAL_MBSU2_Input_Curr_Limit_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"hal_amps_cfs.mbsu2.mbsu_input_curr_limit.input_curr_limit_sp", "trickType":"double", "cfsVar":"Input_Curr_Limit_SP", "cfsType":"double"},
+        {"trickVar":"hal_amps_cfs.mbsu2.mbsu_input_curr_limit.input_bus", "trickType":"uint", "cfsVar":"INPUT_BUS", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE4A",
+    "commandCode":2,
+    "flowDirection":2
+}

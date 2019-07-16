@@ -1,0 +1,598 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/evs/cfe_evs_utils.c
+        -:    0:Programs:4
+        -:    1:/*
+        -:    2:**  File Name: cfe_evs_utils.c
+        -:    3:**  $Id: cfe_evs_utils.c 1.12 2014/08/22 16:53:24GMT-05:00 lwalling Exp  $
+        -:    4:**
+        -:    5:**      Copyright (c) 2004-2012, United States government as represented by the 
+        -:    6:**      administrator of the National Aeronautics Space Administration.  
+        -:    7:**      All rights reserved. This software(cFE) was created at NASA's Goddard 
+        -:    8:**      Space Flight Center pursuant to government contracts.
+        -:    9:**
+        -:   10:**      This is governed by the NASA Open Source Agreement and may be used, 
+        -:   11:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   12:**
+        -:   13:**  Title: Event Services Utility functions
+        -:   14:**
+        -:   15:**  Purpose: This module defines the utility functions of the
+        -:   16:**           Event Services Task and API
+        -:   17:**
+        -:   18:*/
+        -:   19:
+        -:   20:/* Include Files */
+        -:   21:#include "cfe_evs.h"         /* EVS library function definitions */
+        -:   22:#include "cfe_evs_log.h"     /* EVS local event log definitions */
+        -:   23:#include "cfe_evs_task.h"    /* EVS internal definitions */
+        -:   24:#include "cfe_evs_utils.h"   /* EVS utility function definitions */
+        -:   25:
+        -:   26:#include <stdio.h>
+        -:   27:#include <string.h>
+        -:   28:
+        -:   29:#include "cfe_error.h"       /* cFE error code definitions */
+        -:   30:#include "common_types.h"    /* Basic data types */
+        -:   31:#include "osapi.h"           /* OS API interface definitions */
+        -:   32:#include "cfe_psp.h"          /* cFE PSP glue functions */
+        -:   33:#include "cfe_sb.h"          /* Software Bus library function definitions */
+        -:   34:#include "cfe_es.h"
+        -:   35:
+        -:   36:/* Local Function Prototypes */
+        -:   37:void EVS_SendViaPorts (CFE_EVS_LongEventTlm_t *EVS_PktPtr);
+        -:   38:void EVS_OutputPort1 (char *Message);
+        -:   39:void EVS_OutputPort2 (char *Message);
+        -:   40:void EVS_OutputPort3 (char *Message);
+        -:   41:void EVS_OutputPort4 (char *Message);
+        -:   42:
+        -:   43:/* Function Definitions */
+        -:   44:
+        -:   45:
+        -:   46:/*
+        -:   47:**             Function Prologue
+        -:   48:**
+        -:   49:** Function Name:      EVS_GetAppID
+        -:   50:**
+        -:   51:** Purpose:  This routine gets and validates the caller's AppID
+        -:   52:**
+        -:   53:** Assumptions and Notes:
+        -:   54:**
+        -:   55:*/
+       84:   56:int32 EVS_GetAppID (uint32 *AppIdPtr)
+        -:   57:{
+       84:   58:   int32 Status = CFE_SUCCESS;
+        -:   59:
+        -:   60:   /* Get the caller's AppID */
+       84:   61:   Status = CFE_ES_GetAppID(AppIdPtr);
+        -:   62:
+       84:   63:   if (Status == CFE_SUCCESS)
+        -:   64:   {
+        -:   65:      /* Verify that AppID is in range */
+       83:   66:      if (*AppIdPtr >= CFE_PLATFORM_ES_MAX_APPLICATIONS)
+        -:   67:      {
+        7:   68:         Status = CFE_EVS_APP_ILLEGAL_APP_ID;
+        -:   69:      }
+        -:   70:   }
+        -:   71:
+       84:   72:   return(Status);
+        -:   73:
+        -:   74:} /* End EVS_GetAppID */
+        -:   75:
+        -:   76:
+        -:   77:/*
+        -:   78:**             Function Prologue
+        -:   79:**
+        -:   80:** Function Name:      EVS_GetApplicationInfo
+        -:   81:**
+        -:   82:** Purpose:  This routine returns the application ID and
+        -:   83:**           status specifying the validity of the ID
+        -:   84:**
+        -:   85:** Assumptions and Notes:
+        -:   86:**
+        -:   87:*/
+       70:   88:int32 EVS_GetApplicationInfo (uint32 *pAppID, const char *pAppName)
+        -:   89:{
+       70:   90:   int32 Status = CFE_SUCCESS;
+        -:   91:
+       72:   92:   if ((pAppName == (char *) NULL) || (pAppID == (uint32 *) NULL))
+        -:   93:   {
+        2:   94:      Status = CFE_ES_ERR_BUFFER;
+        -:   95:   }
+        -:   96:   else
+        -:   97:   {
+       68:   98:      Status = CFE_ES_GetAppIDByName(pAppID, pAppName);
+        -:   99:
+       68:  100:      if (Status == CFE_SUCCESS)
+        -:  101:      {
+       58:  102:         if (*pAppID >= CFE_PLATFORM_ES_MAX_APPLICATIONS)
+        -:  103:         {
+       10:  104:            Status = CFE_EVS_APP_ILLEGAL_APP_ID;
+        -:  105:         }
+       48:  106:         else if (CFE_EVS_GlobalData.AppData[*pAppID].RegisterFlag == FALSE)
+        -:  107:         {
+       10:  108:            Status = CFE_EVS_APP_NOT_REGISTERED;
+        -:  109:         }
+        -:  110:      }
+        -:  111:   }
+        -:  112:
+       70:  113:   return Status;
+        -:  114:
+        -:  115:} /* End EVS_GetApplicationInfo */
+        -:  116:
+        -:  117:
+        -:  118:/*
+        -:  119:**             Function Prologue
+        -:  120:**
+        -:  121:** Function Name:      EVS_NotRegistered
+        -:  122:**
+        -:  123:** Purpose:  This routine sends one "not registered" event per application
+        -:  124:**
+        -:  125:** Assumptions and Notes:
+        -:  126:**
+        -:  127:*/
+        3:  128:int32 EVS_NotRegistered (uint32 AppID)
+        -:  129:{
+        -:  130:   char AppName[OS_MAX_API_NAME];
+        -:  131:
+        -:  132:   /* Send only one "not registered" event per application */
+        3:  133:   if (CFE_EVS_GlobalData.AppData[AppID].EventCount == 0) 
+        -:  134:   { 
+        -:  135:      /* Increment count of "not registered" applications */
+        1:  136:      CFE_EVS_GlobalData.EVS_TlmPkt.Payload.UnregisteredAppCounter++;
+        -:  137:
+        -:  138:      /* Indicate that "not registered" event has been sent for this app */
+        1:  139:      CFE_EVS_GlobalData.AppData[AppID].EventCount++;
+        -:  140:
+        -:  141:      /* Get the name of the "not registered" app */
+        1:  142:      CFE_ES_GetAppName(AppName, AppID, OS_MAX_API_NAME);
+        -:  143:
+        -:  144:      /* Send the "not registered" event */
+        1:  145:      EVS_SendEvent(CFE_EVS_ERR_UNREGISTERED_EVS_APP, CFE_EVS_EventType_ERROR,
+        -:  146:                   "App %s not registered with Event Services. Unable to send event.", AppName);
+        -:  147:
+        -:  148:      /* Write the "not registered" info to the system log */
+        1:  149:      CFE_ES_WriteToSysLog("App %s not registered with Event Services. Unable to send event.\n", AppName);
+        -:  150:   }
+        -:  151:
+        3:  152:   return(CFE_EVS_APP_NOT_REGISTERED);
+        -:  153:
+        -:  154:} /* End EVS_NotRegistered */
+        -:  155:
+        -:  156:
+        -:  157:/*
+        -:  158:**             Function Prologue
+        -:  159:**
+        -:  160:** Function Name:      EVS_IsFiltered
+        -:  161:**
+        -:  162:** Purpose:  This routine returns true if the given event identifier and event type
+        -:  163:**           is filtered for the given application identifier.  Otherwise a value of
+        -:  164:**           false is returned.
+        -:  165:**
+        -:  166:** Assumptions and Notes:
+        -:  167:**
+        -:  168:*/
+      184:  169:boolean EVS_IsFiltered (uint32 AppID, uint16 EventID, uint16 EventType)
+        -:  170:{
+        -:  171:   EVS_BinFilter_t *FilterPtr;
+        -:  172:   EVS_AppData_t   *AppDataPtr;
+      184:  173:   boolean          Filtered = FALSE;
+        -:  174:   char             AppName[OS_MAX_API_NAME];
+        -:  175:
+        -:  176:
+        -:  177:   /* Caller has verified that AppID is good and has registered with EVS */
+      184:  178:   AppDataPtr = &CFE_EVS_GlobalData.AppData[AppID];
+        -:  179:
+      184:  180:   if (AppDataPtr->ActiveFlag == FALSE)
+        -:  181:   {
+        -:  182:      /* All events are disabled for this application */
+        5:  183:      Filtered = TRUE;
+        -:  184:   }
+      179:  185:   else switch (EventType)
+        -:  186:   {
+        -:  187:      case CFE_EVS_EventType_DEBUG:
+        -:  188:
+       48:  189:         if ((AppDataPtr->EventTypesActiveFlag & CFE_EVS_DEBUG_BIT) == 0)
+        -:  190:         {
+        -:  191:            /* Debug events are disabled for this application */
+        4:  192:            Filtered = TRUE;
+        -:  193:         }
+       48:  194:         break;
+        -:  195:
+        -:  196:      case CFE_EVS_EventType_INFORMATION:
+        -:  197:
+       42:  198:         if ((AppDataPtr->EventTypesActiveFlag & CFE_EVS_INFORMATION_BIT) == 0)
+        -:  199:         {
+        -:  200:            /* Informational events are disabled for this application */
+        1:  201:            Filtered = TRUE;
+        -:  202:         }
+       42:  203:         break;
+        -:  204:
+        -:  205:      case CFE_EVS_EventType_ERROR:
+        -:  206:
+       86:  207:         if ((AppDataPtr->EventTypesActiveFlag & CFE_EVS_ERROR_BIT) == 0)
+        -:  208:         {
+        -:  209:            /* Error events are disabled for this application */
+        1:  210:            Filtered = TRUE;
+        -:  211:         }
+       86:  212:         break;
+        -:  213:
+        -:  214:      case CFE_EVS_EventType_CRITICAL:
+        -:  215:
+        2:  216:         if ((AppDataPtr->EventTypesActiveFlag & CFE_EVS_CRITICAL_BIT) == 0)
+        -:  217:         {
+        -:  218:            /* Critical events are disabled for this application */
+        1:  219:            Filtered = TRUE;
+        -:  220:         }
+        2:  221:         break;
+        -:  222:
+        -:  223:      default:
+        -:  224:
+        -:  225:         /* Invalid Event Type */
+        1:  226:         Filtered = TRUE;
+        -:  227:         break;
+        -:  228:   }
+        -:  229:
+        -:  230:   /* Is this type of event enabled for this application? */
+      184:  231:   if (Filtered == FALSE)
+        -:  232:   {
+      171:  233:      FilterPtr = EVS_FindEventID(EventID, AppDataPtr->BinFilters);
+        -:  234:
+        -:  235:      /* Does this event ID have an event filter table entry? */
+      171:  236:      if (FilterPtr != NULL)
+        -:  237:      {
+        6:  238:         if ((FilterPtr->Mask & FilterPtr->Count) != 0)
+        -:  239:         {
+        -:  240:            /* This iteration of the event ID is filtered */
+        3:  241:            Filtered = TRUE;
+        -:  242:         }
+        -:  243:
+        6:  244:         if (FilterPtr->Count < CFE_EVS_MAX_FILTER_COUNT)
+        -:  245:         {
+        -:  246:            /* Maintain event iteration count */
+        4:  247:            FilterPtr->Count++;
+        -:  248:
+        -:  249:            /* Is it time to lock this filter? */
+        4:  250:            if (FilterPtr->Count == CFE_EVS_MAX_FILTER_COUNT)
+        -:  251:            {
+        1:  252:               CFE_ES_GetAppName(AppName, AppID, OS_MAX_API_NAME);
+        -:  253:
+        1:  254:               EVS_SendEvent(CFE_EVS_FILTER_MAX_EID, CFE_EVS_EventType_INFORMATION,
+        -:  255:                  "Max filter count reached, AppName = %s, EventID = 0x%08x: Filter locked until reset",
+        -:  256:                   AppName, (unsigned int)EventID);
+        -:  257:            }
+        -:  258:         }
+        -:  259:      }
+        -:  260:   }
+        -:  261:
+      184:  262:   return(Filtered);
+        -:  263:
+        -:  264:} /* End EVS_IsFiltered */
+        -:  265:
+        -:  266:
+        -:  267:/*
+        -:  268:**             Function Prologue
+        -:  269:**
+        -:  270:** Function Name:      EVS_FindEventID
+        -:  271:**
+        -:  272:** Purpose:  This routine searches and returns an index to the given Event ID with the
+        -:  273:**           given application filter array.
+        -:  274:**
+        -:  275:** Assumptions and Notes:
+        -:  276:**
+        -:  277:*/
+      206:  278:EVS_BinFilter_t *EVS_FindEventID (int16 EventID, EVS_BinFilter_t *FilterArray)
+        -:  279:{
+        -:  280:   uint32 i;
+        -:  281:
+     1683:  282:   for (i = 0; i < CFE_PLATFORM_EVS_MAX_EVENT_FILTERS; i++)
+        -:  283:   {
+     1502:  284:      if (FilterArray[i].EventID == EventID)
+        -:  285:      {
+       25:  286:         return(&FilterArray[i]);
+        -:  287:      }
+        -:  288:   }
+        -:  289:
+      181:  290:   return((EVS_BinFilter_t *) NULL);
+        -:  291:
+        -:  292:} /* End EVS_FindEventID */
+        -:  293:
+        -:  294:
+        -:  295:/*
+        -:  296:**             Function Prologue
+        -:  297:**
+        -:  298:** Function Name:      EVS_EnableTypes
+        -:  299:**
+        -:  300:** Purpose:  This routine enables event types selected in BitMask
+        -:  301:**
+        -:  302:** Assumptions and Notes:
+        -:  303:**
+        -:  304:*/
+        7:  305:void EVS_EnableTypes (uint8 BitMask, uint32 AppID)
+        -:  306:{
+        7:  307:   uint8 EventTypeBits = (CFE_EVS_DEBUG_BIT | CFE_EVS_INFORMATION_BIT | CFE_EVS_ERROR_BIT | CFE_EVS_CRITICAL_BIT);
+        -:  308:
+        -:  309:   /* Enable selected event type bits from bitmask */
+        7:  310:   CFE_EVS_GlobalData.AppData[AppID].EventTypesActiveFlag |= (BitMask & EventTypeBits);
+        -:  311:
+        7:  312:} /* End EVS_EnableTypes */
+        -:  313:
+        -:  314:
+        -:  315:/*
+        -:  316:**             Function Prologue
+        -:  317:**
+        -:  318:** Function Name:      EVS_DisableTypes
+        -:  319:**
+        -:  320:** Purpose:  This routine disables event types selected in BitMask
+        -:  321:**
+        -:  322:** Assumptions and Notes:
+        -:  323:**
+        -:  324:*/
+        2:  325:void EVS_DisableTypes (uint8 BitMask, uint32 AppID)
+        -:  326:{
+        2:  327:   uint8 EventTypeBits = (CFE_EVS_DEBUG_BIT | CFE_EVS_INFORMATION_BIT | CFE_EVS_ERROR_BIT | CFE_EVS_CRITICAL_BIT);
+        -:  328:
+        -:  329:   /* Disable selected event type bits from bitmask */
+        2:  330:   CFE_EVS_GlobalData.AppData[AppID].EventTypesActiveFlag &= ~(BitMask & EventTypeBits);
+        -:  331:
+        2:  332:} /* End EVS_DisableTypes */
+        -:  333:
+        -:  334:
+        -:  335:/*
+        -:  336:**             Function Prologue
+        -:  337:**
+        -:  338:** Function Name:      EVS_GenerateEventTelemetry
+        -:  339:**
+        -:  340:** Purpose:  This routine sends an EVS event message out the software bus and all
+        -:  341:**           enabled output ports
+        -:  342:**
+        -:  343:** Assumptions and Notes:
+        -:  344:**           This always generates a "long" style message for logging purposes.
+        -:  345:**           If configured for long events the same message is sent on the software bus as well.
+        -:  346:**           If configured for short events, a separate short message is generated using a subset
+        -:  347:**           of the information from the long message.
+        -:  348:*/
+      168:  349:void EVS_GenerateEventTelemetry(uint32 AppID, uint16 EventID, uint16 EventType, const CFE_TIME_SysTime_t *TimeStamp, const char *MsgSpec, va_list ArgPtr)
+        -:  350:{
+        -:  351:    CFE_EVS_LongEventTlm_t   LongEventTlm;      /* The "long" flavor is always generated, as this is what is logged */
+        -:  352:    CFE_EVS_ShortEventTlm_t  ShortEventTlm;     /* The "short" flavor is only generated if selected */
+        -:  353:    int                      ExpandedLength;
+        -:  354:
+        -:  355:    /* Initialize EVS event packets */
+      168:  356:    CFE_SB_InitMsg(&LongEventTlm, CFE_EVS_LONG_EVENT_MSG_MID, sizeof(LongEventTlm), TRUE);
+      168:  357:    LongEventTlm.Payload.PacketID.EventID   = EventID;
+      168:  358:    LongEventTlm.Payload.PacketID.EventType = EventType;
+        -:  359:
+        -:  360:    /* vsnprintf() returns the total expanded length of the formatted string */
+        -:  361:    /* vsnprintf() copies and zero terminates portion that fits in the buffer */
+      168:  362:    ExpandedLength = vsnprintf((char *)LongEventTlm.Payload.Message, sizeof(LongEventTlm.Payload.Message), MsgSpec, ArgPtr);
+        -:  363:
+        -:  364:    /* Were any characters truncated in the buffer? */
+      168:  365:    if (ExpandedLength >= sizeof(LongEventTlm.Payload.Message))
+        -:  366:    {
+        -:  367:       /* Mark character before zero terminator to indicate truncation */
+        4:  368:       LongEventTlm.Payload.Message[sizeof(LongEventTlm.Payload.Message) - 2] = CFE_EVS_MSG_TRUNCATED;
+        4:  369:       CFE_EVS_GlobalData.EVS_TlmPkt.Payload.MessageTruncCounter++;
+        -:  370:    }
+        -:  371:
+        -:  372:    /* Obtain task and system information */
+      168:  373:    CFE_ES_GetAppName((char *)LongEventTlm.Payload.PacketID.AppName, AppID,
+        -:  374:            sizeof(LongEventTlm.Payload.PacketID.AppName));
+      168:  375:    LongEventTlm.Payload.PacketID.SpacecraftID = CFE_PSP_GetSpacecraftId();
+      168:  376:    LongEventTlm.Payload.PacketID.ProcessorID  = CFE_PSP_GetProcessorId();
+        -:  377:
+        -:  378:    /* Set the packet timestamp */
+      168:  379:    CFE_SB_SetMsgTime((CFE_SB_Msg_t *) &LongEventTlm, *TimeStamp);
+        -:  380:
+        -:  381:    /* Write event to the event log */
+      168:  382:    EVS_AddLog(&LongEventTlm);
+        -:  383:
+        -:  384:    /* Send event via selected ports */
+      168:  385:    EVS_SendViaPorts(&LongEventTlm);
+        -:  386:
+      168:  387:    if (CFE_EVS_GlobalData.EVS_TlmPkt.Payload.MessageFormatMode == CFE_EVS_MsgFormat_LONG)
+        -:  388:    {
+        -:  389:        /* Send long event via SoftwareBus */
+      166:  390:        CFE_SB_SendMsg((CFE_SB_Msg_t *) &LongEventTlm);
+        -:  391:    }
+        2:  392:    else if (CFE_EVS_GlobalData.EVS_TlmPkt.Payload.MessageFormatMode == CFE_EVS_MsgFormat_SHORT)
+        -:  393:    {
+        -:  394:        /*
+        -:  395:         * Initialize the short format event message from data that was already
+        -:  396:         * gathered in the long format message (short format is a subset)
+        -:  397:         *
+        -:  398:         * This goes out on a separate message ID.
+        -:  399:         */
+        2:  400:        CFE_SB_InitMsg(&ShortEventTlm, CFE_EVS_SHORT_EVENT_MSG_MID, sizeof(ShortEventTlm), TRUE);
+        2:  401:        CFE_SB_SetMsgTime((CFE_SB_Msg_t *) &ShortEventTlm, *TimeStamp);
+        2:  402:        ShortEventTlm.Payload.PacketID = LongEventTlm.Payload.PacketID;
+        2:  403:        CFE_SB_SendMsg((CFE_SB_Msg_t *) &ShortEventTlm);
+        -:  404:    }
+        -:  405:
+        -:  406:    /* Increment message send counters (prevent rollover) */
+      168:  407:    if (CFE_EVS_GlobalData.EVS_TlmPkt.Payload.MessageSendCounter < CFE_EVS_MAX_EVENT_SEND_COUNT)
+        -:  408:    {
+      167:  409:       CFE_EVS_GlobalData.EVS_TlmPkt.Payload.MessageSendCounter++;
+        -:  410:    }
+        -:  411:
+      168:  412:    if (CFE_EVS_GlobalData.AppData[AppID].EventCount < CFE_EVS_MAX_EVENT_SEND_COUNT)
+        -:  413:    {
+      167:  414:       CFE_EVS_GlobalData.AppData[AppID].EventCount++;
+        -:  415:    }
+        -:  416:
+      168:  417:} /* End EVS_GenerateEventTelemetry */
+        -:  418:
+        -:  419:
+        -:  420:/*
+        -:  421:**             Function Prologue
+        -:  422:**
+        -:  423:** Function Name:      EVS_SendViaPorts
+        -:  424:**
+        -:  425:** Purpose:  This routine sends a string event message out all enabled
+        -:  426:**           output ports
+        -:  427:**
+        -:  428:** Assumptions and Notes:
+        -:  429:*/
+      168:  430:void EVS_SendViaPorts (CFE_EVS_LongEventTlm_t *EVS_PktPtr)
+        -:  431:{
+        -:  432:   char PortMessage[CFE_EVS_MAX_PORT_MSG_LENGTH];
+        -:  433:
+      168:  434:   if (((CFE_EVS_GlobalData.EVS_TlmPkt.Payload.OutputPort & CFE_EVS_PORT1_BIT) >> 0) == TRUE)
+        -:  435:   {
+        -:  436:      /* Copy event message to string format */
+        9:  437:      snprintf(PortMessage, CFE_EVS_MAX_PORT_MSG_LENGTH, "EVS Port1 %u/%u/%s %u: %s", (unsigned int) EVS_PktPtr->Payload.PacketID.SpacecraftID,
+        -:  438:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.ProcessorID,
+        -:  439:                                                        EVS_PktPtr->Payload.PacketID.AppName,
+        -:  440:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.EventID,
+        -:  441:                                                        EVS_PktPtr->Payload.Message);
+        -:  442:      /* Send string event out port #1 */
+        9:  443:      EVS_OutputPort1(PortMessage);
+        -:  444:   }
+        -:  445:
+      168:  446:   if (((CFE_EVS_GlobalData.EVS_TlmPkt.Payload.OutputPort & CFE_EVS_PORT2_BIT) >> 1) == TRUE)
+        -:  447:   {
+        -:  448:      /* Copy event message to string format */
+        5:  449:      snprintf(PortMessage, CFE_EVS_MAX_PORT_MSG_LENGTH, "EVS Port2 %u/%u/%s %u: %s", (unsigned int) EVS_PktPtr->Payload.PacketID.SpacecraftID,
+        -:  450:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.ProcessorID,
+        -:  451:                                                        EVS_PktPtr->Payload.PacketID.AppName,
+        -:  452:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.EventID,
+        -:  453:                                                        EVS_PktPtr->Payload.Message);
+        -:  454:      /* Send string event out port #2 */
+        5:  455:      EVS_OutputPort2(PortMessage);
+        -:  456:   }
+        -:  457:
+      168:  458:   if (((CFE_EVS_GlobalData.EVS_TlmPkt.Payload.OutputPort & CFE_EVS_PORT3_BIT) >> 2) == TRUE)
+        -:  459:   {
+        -:  460:      /* Copy event message to string format */
+        5:  461:      snprintf(PortMessage, CFE_EVS_MAX_PORT_MSG_LENGTH, "EVS Port3 %u/%u/%s %u: %s", (unsigned int) EVS_PktPtr->Payload.PacketID.SpacecraftID,
+        -:  462:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.ProcessorID,
+        -:  463:                                                        EVS_PktPtr->Payload.PacketID.AppName,
+        -:  464:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.EventID,
+        -:  465:                                                        EVS_PktPtr->Payload.Message);
+        -:  466:      /* Send string event out port #3 */
+        5:  467:      EVS_OutputPort3(PortMessage);
+        -:  468:   }
+        -:  469:
+      168:  470:   if (((CFE_EVS_GlobalData.EVS_TlmPkt.Payload.OutputPort & CFE_EVS_PORT4_BIT) >> 3) == TRUE)
+        -:  471:   {
+        -:  472:      /* Copy event message to string format */
+        5:  473:      snprintf(PortMessage, CFE_EVS_MAX_PORT_MSG_LENGTH, "EVS Port4 %u/%u/%s %u: %s", (unsigned int) EVS_PktPtr->Payload.PacketID.SpacecraftID,
+        -:  474:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.ProcessorID,
+        -:  475:                                                        EVS_PktPtr->Payload.PacketID.AppName,
+        -:  476:                                                        (unsigned int) EVS_PktPtr->Payload.PacketID.EventID,
+        -:  477:                                                        EVS_PktPtr->Payload.Message);
+        -:  478:      /* Send string event out port #4 */
+        5:  479:      EVS_OutputPort4(PortMessage);
+        -:  480:   }
+        -:  481:
+      168:  482:} /* End SendViaPorts */
+        -:  483:
+        -:  484:
+        -:  485:/*
+        -:  486:**             Function Prologue
+        -:  487:**
+        -:  488:** Function Name:      EVS_OutputPort1
+        -:  489:**
+        -:  490:** Purpose:  This routine sends the input message string out
+        -:  491:**           EVS port 1
+        -:  492:**
+        -:  493:** Assumptions and Notes:
+        -:  494:**
+        -:  495:*/
+        9:  496:void EVS_OutputPort1 (char *Message)
+        -:  497:{
+        9:  498:    OS_printf("%s\n", Message);
+        -:  499:
+        9:  500:} /* End ES_OutputPort1 */
+        -:  501:
+        -:  502:
+        -:  503:/*
+        -:  504:**             Function Prologue
+        -:  505:**
+        -:  506:** Function Name:      EVS_OutputPort2
+        -:  507:**
+        -:  508:** Purpose:  This routine sends the input message string out
+        -:  509:**           EVS port 2
+        -:  510:**
+        -:  511:** Assumptions and Notes:
+        -:  512:**
+        -:  513:*/
+        5:  514:void EVS_OutputPort2 (char *Message)
+        -:  515:{
+        5:  516:   OS_printf("%s\n", Message);
+        -:  517:
+        5:  518:} /* End ES_OutputPort2 */
+        -:  519:
+        -:  520:
+        -:  521:/*
+        -:  522:**             Function Prologue
+        -:  523:**
+        -:  524:** Function Name:      EVS_OutputPort3
+        -:  525:**
+        -:  526:** Purpose:  This routine sends the input message string out
+        -:  527:**           EVS port 3
+        -:  528:**
+        -:  529:** Assumptions and Notes:
+        -:  530:**
+        -:  531:*/
+        5:  532:void EVS_OutputPort3 (char *Message)
+        -:  533:{
+        5:  534:   OS_printf("%s\n", Message);
+        -:  535:
+        5:  536:} /* End ES_OutputPort3 */
+        -:  537:
+        -:  538:
+        -:  539:/*
+        -:  540:**             Function Prologue
+        -:  541:**
+        -:  542:** Function Name:      EVS_OutputPort4
+        -:  543:**
+        -:  544:** Purpose:  This routine sends the input message string out
+        -:  545:**           EVS port 4
+        -:  546:**
+        -:  547:** Assumptions and Notes:
+        -:  548:**
+        -:  549:*/
+        5:  550:void EVS_OutputPort4 (char *Message)
+        -:  551:{
+        5:  552:   OS_printf("%s\n", Message);
+        -:  553:
+        5:  554:} /* End ES_OutputPort4 */
+        -:  555:
+        -:  556:
+        -:  557:/*
+        -:  558:**             Function Prologue
+        -:  559:**
+        -:  560:** Function Name:      EVS_SendEvent
+        -:  561:**
+        -:  562:** Purpose:  This routine allows EVS to send events without having to verify
+        -:  563:**           that the caller has a valid AppID and has registered with EVS.
+        -:  564:**           This routine also does not need to acquire the mutex semaphore,
+        -:  565:**           which can be time consuming on some platforms.
+        -:  566:**
+        -:  567:** Assumptions and Notes:
+        -:  568:*/
+      139:  569:int32 EVS_SendEvent (uint16 EventID, uint16 EventType, const char *Spec, ... )
+        -:  570:{
+        -:  571:   CFE_TIME_SysTime_t Time;
+        -:  572:   va_list            Ptr;
+        -:  573:
+        -:  574:   /*
+        -:  575:    * Must check that EVS_AppID is valid, which can happen if this is called
+        -:  576:    * by some other thread before CFE_EVS_TaskInit() runs
+        -:  577:    */
+        -:  578:   /* Unlikely, but possible that an EVS event filter was added by command */
+      277:  579:   if (CFE_EVS_GlobalData.EVS_AppID < CFE_PLATFORM_ES_MAX_APPLICATIONS &&
+      138:  580:           EVS_IsFiltered(CFE_EVS_GlobalData.EVS_AppID, EventID, EventType) == FALSE)
+        -:  581:   {
+        -:  582:      /* Get current spacecraft time */
+      132:  583:      Time = CFE_TIME_GetTime();
+        -:  584:
+        -:  585:      /* Send the event packets */
+      132:  586:      va_start(Ptr, Spec);
+      132:  587:      EVS_GenerateEventTelemetry(CFE_EVS_GlobalData.EVS_AppID, EventID, EventType, &Time, Spec, Ptr);
+      132:  588:      va_end(Ptr);
+        -:  589:   }
+        -:  590:
+      139:  591:   return(CFE_SUCCESS);
+        -:  592:
+        -:  593:} /* End EVS_SendEvent */
+        -:  594:
+        -:  595:
+        -:  596:/* End cfe_evs_utils */

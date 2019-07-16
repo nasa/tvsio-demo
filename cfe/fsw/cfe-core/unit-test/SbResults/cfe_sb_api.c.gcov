@@ -1,0 +1,2146 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/sb/cfe_sb_api.c
+        -:    0:Programs:7
+        -:    1:/******************************************************************************
+        -:    2:** File: cfe_sb_api.c
+        -:    3:**
+        -:    4:**      Copyright (c) 2004-2012, United States government as represented by the
+        -:    5:**      administrator of the National Aeronautics Space Administration.
+        -:    6:**      All rights reserved. This software(cFE) was created at NASA's Goddard
+        -:    7:**      Space Flight Center pursuant to government contracts.
+        -:    8:**
+        -:    9:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   10:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   11:**
+        -:   12:** Purpose:
+        -:   13:**      This file contains the source code for the SB API's.
+        -:   14:**      
+        -:   15:** Notes: The following 4 terms have been, or are used in the cFS architecture and implementation
+        -:   16:**         
+        -:   17:**      StreamId - First 16 bits of CCSDS Space Packet Protocol (SPP) 133.0-B.1c2 Blue Book 
+        -:   18:**                 packet primary header. It contains the 3 bit Version Number, 1 bit Packet Type ID,
+        -:   19:**                 1 bit Secondary Header flag, and 11 bit Application Process ID
+        -:   20:**                 It was used in earlier cFS implementaions and is defined here for historical reference
+        -:   21:**                 It is NOT exposed to user applications.
+        -:   22:**
+        -:   23:**      MsgId    - Unique numeric message identifier within a mission namespace. It is used by cFS
+        -:   24:**                 applications to the identify messages for publishing and subscribing
+        -:   25:**                 It is used by the SB API and encoded in a mission defended way in the header of 
+        -:   26:**                 all cFS messages.
+        -:   27:**                 It is exposed to all cFS applications
+        -:   28:**
+        -:   29:**      ApId     - CCSDS Application Process Id field in the primary header. 
+        -:   30:**                 It has default bit mask of 0x07FF and is part of the cFS message Id
+        -:   31:**                 It should not be confused with the cFE Executive Services (ES) term appId which
+        -:   32:**                 identifies the software application/component
+        -:   33:**                 It is NOT exposed to user applications.
+        -:   34:**
+        -:   35:**      MsgIdkey - This is a unique numeric key within a mission namespace that is used with  
+        -:   36:**                 cFS software bus internal structures. 
+        -:   37:**                 It is algorithmically created in a mission defined way from the MsgId to support
+        -:   38:**                 efficient lookup and mapping implementations 
+        -:   39:**                 It is NOT exposed to user applications.
+        -:   40:**
+        -:   41:** Author:   R.McGraw/SSI
+        -:   42:**           J.Wilmot/NASA 
+        -:   43:**
+        -:   44:******************************************************************************/
+        -:   45:
+        -:   46:/*
+        -:   47:** Include Files
+        -:   48:*/
+        -:   49:#include "common_types.h"
+        -:   50:#include "private/cfe_private.h"
+        -:   51:#include "cfe_sb_events.h"
+        -:   52:#include "cfe_sb_priv.h"
+        -:   53:#include "cfe_sb.h"
+        -:   54:#include "osapi.h"
+        -:   55:#include "cfe_es.h"
+        -:   56:#include "cfe_psp.h"
+        -:   57:#include "cfe_error.h"
+        -:   58:#include <string.h>
+        -:   59:
+        -:   60:/* 
+        -:   61: * Macro to reflect size of PipeDepthStats Telemetry array - 
+        -:   62: * this may or may not be the same as CFE_SB_MSG_MAX_PIPES
+        -:   63: */
+        -:   64:#define CFE_SB_TLM_PIPEDEPTHSTATS_SIZE     (sizeof(CFE_SB.StatTlmMsg.Payload.PipeDepthStats) / sizeof(CFE_SB.StatTlmMsg.Payload.PipeDepthStats[0]))
+        -:   65:/******************************************************************************
+        -:   66:** Name:    CFE_SB_CreatePipe
+        -:   67:**
+        -:   68:** Purpose: API to create a pipe for receiving messages
+        -:   69:**
+        -:   70:** Assumptions, External Events, and Notes:
+        -:   71:**
+        -:   72:**          Note: Zero is a valid PipeId
+        -:   73:**
+        -:   74:** Date Written:
+        -:   75:**          04/25/2005
+        -:   76:**
+        -:   77:** Inputs:
+        -:   78:**          PipeIdPtr - Ptr to users empty PipeId variable, to be filled by
+        -:   79:**                      this function.
+        -:   80:**          Depth     - The depth of the pipe, synonymous to the max number
+        -:   81:**                      of messages the pipe can hold at any time.
+        -:   82:**          PipeName  - The name of the pipe displayed in event messages
+        -:   83:**
+        -:   84:** Outputs:
+        -:   85:**          PipeId    - The handle of the pipe to be used when receiving
+        -:   86:**                      messages.
+        -:   87:**
+        -:   88:** Return Values:
+        -:   89:**          Status
+        -:   90:**
+        -:   91:******************************************************************************/
+      190:   92:int32  CFE_SB_CreatePipe(CFE_SB_PipeId_t *PipeIdPtr, uint16  Depth, const char *PipeName)
+        -:   93:{
+      190:   94:    uint32          AppId = 0xFFFFFFFF;
+      190:   95:    uint32          TskId = 0;
+      190:   96:    uint32          SysQueueId = 0;
+        -:   97:    int32           Status;
+      190:   98:    CFE_SB_PipeId_t OriginalPipeIdParamValue = (PipeIdPtr == NULL) ? 0 : (*PipeIdPtr);
+        -:   99:    CFE_SB_PipeId_t PipeTblIdx;
+      190:  100:    char            AppName[OS_MAX_API_NAME] = {'\0'};
+        -:  101:    char            FullName[(OS_MAX_API_NAME * 2)];
+        -:  102:
+        -:  103:    /* get callers AppId */
+      190:  104:    CFE_ES_GetAppID(&AppId);
+        -:  105:
+        -:  106:    /* get callers name */
+      190:  107:    CFE_ES_GetAppName(AppName, AppId, OS_MAX_API_NAME);
+        -:  108:
+        -:  109:    /* Hardcode a NULL terminator, in case rcvd name was too long */
+      190:  110:    AppName[OS_MAX_API_NAME-1]= '\0';
+        -:  111:
+        -:  112:    /* take semaphore to prevent a task switch during this call */
+      190:  113:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  114:
+      190:  115:    TskId = OS_TaskGetId();
+        -:  116:
+        -:  117:    /* set user's pipe id value to 'invalid' for error cases below */
+      190:  118:    if(PipeIdPtr != NULL){
+      189:  119:        *PipeIdPtr = CFE_SB_INVALID_PIPE;
+        -:  120:    }/* end if */
+        -:  121:
+        -:  122:    /* check input parameters */
+      190:  123:    if((PipeIdPtr == NULL)||(Depth > CFE_PLATFORM_SB_MAX_PIPE_DEPTH)||(Depth == 0)){
+        4:  124:        CFE_SB.HKTlmMsg.Payload.CreatePipeErrorCounter++;
+        4:  125:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        4:  126:        CFE_EVS_SendEventWithAppID(CFE_SB_CR_PIPE_BAD_ARG_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  127:          "CreatePipeErr:Bad Input Arg:app=%s,ptr=0x%lx,depth=%d,maxdepth=%d",
+        -:  128:                CFE_SB_GetAppTskName(TskId,FullName),(unsigned long)PipeIdPtr,(int)Depth,CFE_PLATFORM_SB_MAX_PIPE_DEPTH);
+        4:  129:        return CFE_SB_BAD_ARGUMENT;
+        -:  130:    }/*end if*/
+        -:  131:
+        -:  132:    /* get first available entry in pipe table */
+      186:  133:    PipeTblIdx = CFE_SB_GetAvailPipeIdx();
+        -:  134:
+        -:  135:    /* if pipe table is full, send event and return error */
+      186:  136:    if(PipeTblIdx == CFE_SB_INVALID_PIPE){
+        1:  137:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  138:        CFE_EVS_SendEventWithAppID(CFE_SB_MAX_PIPES_MET_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  139:          "CreatePipeErr:Max Pipes(%d)In Use.app %s",
+        -:  140:          CFE_PLATFORM_SB_MAX_PIPES,CFE_SB_GetAppTskName(TskId,FullName));
+        1:  141:        return CFE_SB_MAX_PIPES_MET;
+        -:  142:    }/* end if */
+        -:  143:
+        -:  144:    /* create the queue */
+      185:  145:    Status = OS_QueueCreate(&SysQueueId,PipeName,Depth,sizeof(CFE_SB_BufferD_t *),0);
+      185:  146:    if (Status != OS_SUCCESS) {
+        2:  147:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -:  148:
+        -:  149:        /* if OS_QueueCreate() failed because the pipe name passed in was already in use... */
+        -:  150:        /* let's make sure we don't alter the user's pipe ID data */
+        2:  151:        if (Status == CFE_OS_ERR_NAME_TAKEN){
+        1:  152:            *PipeIdPtr = OriginalPipeIdParamValue;
+        -:  153:        }
+        -:  154:
+        2:  155:        CFE_EVS_SendEventWithAppID(CFE_SB_CR_PIPE_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  156:                "CreatePipeErr:OS_QueueCreate returned %d,app %s",
+        -:  157:                (int)Status,CFE_SB_GetAppTskName(TskId,FullName));
+        2:  158:        return CFE_SB_PIPE_CR_ERR;
+        -:  159:    }/* end if */
+        -:  160:
+        -:  161:    /* fill in the pipe table fields */
+      183:  162:    CFE_SB.PipeTbl[PipeTblIdx].InUse       = CFE_SB_IN_USE;
+      183:  163:    CFE_SB.PipeTbl[PipeTblIdx].SysQueueId  = SysQueueId;
+      183:  164:    CFE_SB.PipeTbl[PipeTblIdx].PipeId      = PipeTblIdx;
+      183:  165:    CFE_SB.PipeTbl[PipeTblIdx].QueueDepth  = Depth;
+      183:  166:    CFE_SB.PipeTbl[PipeTblIdx].AppId       = AppId;
+      183:  167:    CFE_SB.PipeTbl[PipeTblIdx].SendErrors  = 0;
+      183:  168:    CFE_SB.PipeTbl[PipeTblIdx].CurrentBuff = NULL;
+      183:  169:    CFE_SB.PipeTbl[PipeTblIdx].ToTrashBuff = NULL;
+      183:  170:    strcpy(&CFE_SB.PipeTbl[PipeTblIdx].AppName[0],&AppName[0]);
+      183:  171:    strncpy(&CFE_SB.PipeTbl[PipeTblIdx].PipeName[0],PipeName,OS_MAX_API_NAME);
+      183:  172:    CFE_SB.PipeTbl[PipeTblIdx].PipeName[OS_MAX_API_NAME-1]='\0';
+        -:  173:
+        -:  174:    /* Increment the Pipes in use ctr and if it's > the high water mark,*/
+        -:  175:    /* adjust the high water mark */
+      183:  176:    CFE_SB.StatTlmMsg.Payload.PipesInUse++;
+      183:  177:    if(CFE_SB.StatTlmMsg.Payload.PipesInUse > CFE_SB.StatTlmMsg.Payload.PeakPipesInUse){
+      176:  178:       CFE_SB.StatTlmMsg.Payload.PeakPipesInUse = CFE_SB.StatTlmMsg.Payload.PipesInUse;
+        -:  179:    }/* end if */
+        -:  180:
+        -:  181:    /* Reset the pipe depth parameters in the statistics pkt */
+      183:  182:    if (PipeTblIdx < CFE_SB_TLM_PIPEDEPTHSTATS_SIZE)
+        -:  183:    {
+      183:  184:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].PipeId = PipeTblIdx;
+      183:  185:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].Depth = Depth;
+      183:  186:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].InUse = 0;
+      183:  187:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].PeakInUse = 0;
+        -:  188:    }
+        -:  189:
+        -:  190:    /* give the pipe handle to the caller */
+      183:  191:    *PipeIdPtr = PipeTblIdx;
+        -:  192:
+      183:  193:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -:  194:
+        -:  195:    /* send debug event */
+      366:  196:    CFE_EVS_SendEventWithAppID(CFE_SB_PIPE_ADDED_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -:  197:          "Pipe Created:name %s,id %d,app %s",
+      183:  198:          CFE_SB_GetPipeName(CFE_SB.PipeTbl[PipeTblIdx].PipeId),
+        -:  199:          (int)CFE_SB.PipeTbl[PipeTblIdx].PipeId,
+        -:  200:          CFE_SB_GetAppTskName(TskId,FullName));
+        -:  201:
+      183:  202:    return CFE_SUCCESS;
+        -:  203:
+        -:  204:}/* end CFE_SB_CreatePipe */
+        -:  205:
+        -:  206:
+        -:  207:/******************************************************************************
+        -:  208:**  Function:  CFE_SB_DeletePipe()
+        -:  209:**
+        -:  210:**  Purpose:
+        -:  211:**    Will unsubscribe to all routes associated with the given pipe id, then remove
+        -:  212:**    pipe from the pipe table.
+        -:  213:**
+        -:  214:**  Arguments:
+        -:  215:**    PipeId - The ID of the pipe to delete.
+        -:  216:**
+        -:  217:**  Return:
+        -:  218:**    CFE_SUCCESS or cFE Error Code
+        -:  219:*/
+      184:  220:int32 CFE_SB_DeletePipe(CFE_SB_PipeId_t PipeId)
+        -:  221:{
+      184:  222:    uint32  CallerId = 0xFFFFFFFF;
+      184:  223:    int32   Status = 0;
+        -:  224:
+        -:  225:    /* get the callers Application Id */
+      184:  226:    CFE_ES_GetAppID(&CallerId);
+        -:  227:
+      184:  228:    Status = CFE_SB_DeletePipeFull(PipeId,CallerId);
+        -:  229:
+      184:  230:    return Status;
+        -:  231:
+        -:  232:}/* end CFE_SB_DeletePipe */
+        -:  233:
+        -:  234:
+        -:  235:
+        -:  236:/******************************************************************************
+        -:  237:**  Function:  CFE_SB_DeletePipeWithAppId()
+        -:  238:**
+        -:  239:**  Purpose:
+        -:  240:**
+        -:  241:**
+        -:  242:**  Arguments:
+        -:  243:**    PipeId - The ID of the pipe to delete.
+        -:  244:**
+        -:  245:**  Return:
+        -:  246:**    CFE_SUCCESS or cFE Error Code
+        -:  247:*/
+        3:  248:int32 CFE_SB_DeletePipeWithAppId(CFE_SB_PipeId_t PipeId, uint32 AppId)
+        -:  249:{
+        3:  250:    int32   Status = 0;
+        -:  251:
+        3:  252:    Status = CFE_SB_DeletePipeFull(PipeId,AppId);
+        -:  253:
+        3:  254:    return Status;
+        -:  255:
+        -:  256:}/* end CFE_SB_DeletePipeWithAppId */
+        -:  257:
+        -:  258:
+        -:  259:
+        -:  260:/******************************************************************************
+        -:  261:**  Function:  CFE_SB_DeletePipeFull()
+        -:  262:**
+        -:  263:**  Purpose:
+        -:  264:**    Will unsubscribe to all routes associated with the given pipe id, then remove
+        -:  265:**    pipe from the pipe table.
+        -:  266:**
+        -:  267:**  NOTE:This function cannot be called directly, it would not be semaphore protected
+        -:  268:**
+        -:  269:**  Arguments:
+        -:  270:**    PipeId - The ID of the pipe to delete.
+        -:  271:**
+        -:  272:**  Return:
+        -:  273:**    CFE_SUCCESS or cFE Error Code
+        -:  274:*/
+      188:  275:int32 CFE_SB_DeletePipeFull(CFE_SB_PipeId_t PipeId,uint32 AppId)
+        -:  276:{
+        -:  277:    uint8         PipeTblIdx;
+        -:  278:    int32         RtnFromVal,Stat;
+        -:  279:    uint32        Owner,i;
+      188:  280:    uint32        TskId = 0;
+        -:  281:    CFE_SB_Msg_t  *PipeMsgPtr;
+      188:  282:    CFE_SB_DestinationD_t *DestPtr = NULL;
+        -:  283:    char          FullName[(OS_MAX_API_NAME * 2)];
+        -:  284:
+        -:  285:    /* take semaphore to prevent a task switch during this call */
+      188:  286:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  287:
+        -:  288:    /* get TaskId of caller for events */
+      188:  289:    TskId = OS_TaskGetId();
+        -:  290:
+        -:  291:    /* check input parameter */
+      188:  292:    PipeTblIdx = CFE_SB_GetPipeIdx(PipeId);
+      188:  293:    RtnFromVal = CFE_SB_ValidatePipeId(PipeId);
+      188:  294:    if((RtnFromVal != CFE_SUCCESS)||(PipeTblIdx == CFE_SB_INVALID_PIPE))
+        -:  295:    {
+        4:  296:        CFE_SB.HKTlmMsg.Payload.CreatePipeErrorCounter++;
+        4:  297:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        4:  298:        CFE_EVS_SendEventWithAppID(CFE_SB_DEL_PIPE_ERR1_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  299:          "Pipe Delete Error:Bad Argument,PipedId %d,Requestor %s,Idx %d,Stat %d",
+        -:  300:          (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName),(int)PipeTblIdx,(int)RtnFromVal);
+        4:  301:        return CFE_SB_BAD_ARGUMENT;
+        -:  302:    }/* end if */
+        -:  303:
+      184:  304:    Owner = CFE_SB.PipeTbl[PipeTblIdx].AppId;
+        -:  305:
+        -:  306:    /* check that the given AppId is the owner of the pipe */
+      184:  307:    if(AppId != Owner){
+        1:  308:        CFE_SB.HKTlmMsg.Payload.CreatePipeErrorCounter++;
+        1:  309:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  310:        CFE_EVS_SendEventWithAppID(CFE_SB_DEL_PIPE_ERR2_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  311:          "Pipe Delete Error:Caller(%s) is not the owner of pipe %d",
+        -:  312:          CFE_SB_GetAppTskName(TskId,FullName),(int)PipeId);
+        1:  313:        return CFE_SB_BAD_ARGUMENT;
+        -:  314:    }/* end if */
+        -:  315:
+        -:  316:    /* check destination list of every in-use MsgId, for the given pipeid. */
+        -:  317:    /* when found, remove the pipe ID from the destination list via 'unsubscribe' */
+    47031:  318:    for(i=0;i<CFE_PLATFORM_SB_MAX_MSG_IDS;i++)
+        -:  319:    {
+    46848:  320:        if(CFE_SB_IsValidMsgId(CFE_SB.RoutingTbl[i].MsgId))
+        -:  321:        {
+     1043:  322:            DestPtr = CFE_SB.RoutingTbl[i].ListHeadPtr;
+        -:  323:
+     3164:  324:            while(DestPtr != NULL){
+        -:  325:
+     1078:  326:                if(DestPtr -> PipeId == PipeId){
+        -:  327:                    /* release the semaphore, unsubscribe will need to take it */
+      415:  328:                    CFE_SB_UnlockSharedData(__func__,__LINE__);
+      415:  329:                    CFE_SB_UnsubscribeWithAppId(CFE_SB.RoutingTbl[i].MsgId,
+        -:  330:                                       PipeId,AppId);
+      415:  331:                    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  332:                }/* end if */
+        -:  333:
+     1078:  334:                DestPtr = DestPtr -> Next;
+        -:  335:
+        -:  336:            }/* end while */
+        -:  337:
+        -:  338:        }/* end if */
+        -:  339:    }/* end for */
+        -:  340:
+      183:  341:    if (CFE_SB.PipeTbl[PipeTblIdx].ToTrashBuff != NULL) {
+        -:  342:
+        -:  343:        /* Decrement the Buffer Use Count and Free buffer if cnt=0) */
+        1:  344:        CFE_SB_DecrBufUseCnt(CFE_SB.PipeTbl[PipeTblIdx].ToTrashBuff);
+        1:  345:        CFE_SB.PipeTbl[PipeTblIdx].ToTrashBuff = NULL;
+        -:  346:
+        -:  347:    }/* end if */
+        -:  348:
+        -:  349:
+        -:  350:    /* remove any messages that might be on the pipe */
+        -:  351:    /* this step will free the memory used to store the message */
+        -:  352:    do{
+      191:  353:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+      191:  354:      Stat = CFE_SB_RcvMsg(&PipeMsgPtr,PipeId,CFE_SB_POLL);
+      191:  355:      CFE_SB_LockSharedData(__func__,__LINE__);
+      191:  356:    }while(Stat == CFE_SUCCESS);
+        -:  357:
+        -:  358:    /* Delete the underlying OS queue */
+      183:  359:    OS_QueueDelete(CFE_SB.PipeTbl[PipeTblIdx].SysQueueId);
+        -:  360:
+        -:  361:    /* remove the pipe from the pipe table */
+      183:  362:    CFE_SB.PipeTbl[PipeTblIdx].InUse         = CFE_SB_NOT_IN_USE;
+      183:  363:    CFE_SB.PipeTbl[PipeTblIdx].SysQueueId    = CFE_SB_UNUSED_QUEUE;
+      183:  364:    CFE_SB.PipeTbl[PipeTblIdx].PipeId        = CFE_SB_INVALID_PIPE;
+      183:  365:    CFE_SB.PipeTbl[PipeTblIdx].CurrentBuff   = NULL;
+      183:  366:    memset(&CFE_SB.PipeTbl[PipeTblIdx].PipeName[0],0,OS_MAX_API_NAME);
+        -:  367:
+        -:  368:    /* zero out the pipe depth stats */
+      183:  369:    if (PipeTblIdx < CFE_SB_TLM_PIPEDEPTHSTATS_SIZE)
+        -:  370:    {
+      183:  371:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].PipeId = 0;
+      183:  372:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].Depth = 0;
+      183:  373:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].InUse = 0;
+      183:  374:    CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeTblIdx].PeakInUse = 0;
+        -:  375:    }
+        -:  376:
+      183:  377:    CFE_SB.StatTlmMsg.Payload.PipesInUse--;
+        -:  378:
+      183:  379:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -:  380:
+      183:  381:    CFE_EVS_SendEventWithAppID(CFE_SB_PIPE_DELETED_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -:  382:          "Pipe Deleted:id %d,owner %s",(int)PipeId, CFE_SB_GetAppTskName(Owner,FullName));
+        -:  383:
+      183:  384:    return CFE_SUCCESS;
+        -:  385:
+        -:  386:}/* end CFE_SB_DeletePipeFull */
+        -:  387:
+        -:  388:
+        -:  389:/******************************************************************************
+        -:  390:**  Function:  CFE_SB_SetPipeOpts()
+        -:  391:**
+        -:  392:**  Purpose:
+        -:  393:**  Sets pipe options. Options are a bit field, setting each bit enables the 
+        -:  394:**  option specified.
+        -:  395:**
+        -:  396:**  Arguments:
+        -:  397:**    PipeId - The ID of the pipe for the options.
+        -:  398:**    Opts   - The options to set on this pipe.
+        -:  399:**
+        -:  400:**  Return:
+        -:  401:**    CFE_SUCCESS or cFE Error Code
+        -:  402:*/
+        5:  403:int32 CFE_SB_SetPipeOpts(CFE_SB_PipeId_t PipeId, uint8 Opts)
+        -:  404:{
+        5:  405:    uint8         PipeTblIdx = 0;
+        5:  406:    int32         RtnFromVal = 0;
+        5:  407:    uint32        Owner = 0, AppID = 0, TskId = 0, Status = 0;
+        -:  408:    char          FullName[(OS_MAX_API_NAME * 2)];
+        -:  409:
+        5:  410:    Status = CFE_ES_GetAppID(&AppID);
+        5:  411:    if(Status != CFE_SUCCESS)
+        -:  412:    {
+        -:  413:        /* shouldn't happen... */
+    #####:  414:        return Status;
+        -:  415:    }
+        -:  416:
+        -:  417:    /* take semaphore to prevent a task switch during this call */
+        5:  418:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  419:
+        -:  420:    /* get TaskId of caller for events */
+        5:  421:    TskId = OS_TaskGetId();
+        -:  422:
+        -:  423:    /* check input parameter */
+        5:  424:    PipeTblIdx = CFE_SB_GetPipeIdx(PipeId);
+        5:  425:    RtnFromVal = CFE_SB_ValidatePipeId(PipeId);
+        -:  426:
+        5:  427:    if((RtnFromVal != CFE_SUCCESS)||(PipeTblIdx == CFE_SB_INVALID_PIPE))
+        -:  428:    {
+        1:  429:        CFE_SB.HKTlmMsg.Payload.PipeOptsErrorCounter++;
+        1:  430:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  431:        CFE_EVS_SendEventWithAppID(CFE_SB_SETPIPEOPTS_ID_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  432:          "Pipe Opts Error:Bad Argument,PipedId %d,Requestor %s,Idx %d,Stat %d",
+        -:  433:          (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName),(int)PipeTblIdx,(int)RtnFromVal);
+        1:  434:        return CFE_SB_BAD_ARGUMENT;
+        -:  435:    }/* end if */
+        -:  436:
+        -:  437:    /* check that the given AppId is the owner of the pipe */
+        4:  438:    Owner = CFE_SB.PipeTbl[PipeTblIdx].AppId;
+        4:  439:    if(AppID != Owner){
+        1:  440:        CFE_SB.HKTlmMsg.Payload.PipeOptsErrorCounter++;
+        1:  441:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  442:        CFE_EVS_SendEventWithAppID(CFE_SB_SETPIPEOPTS_OWNER_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  443:          "Pipe Opts Set Error: Caller(%s) is not the owner of pipe %d",
+        -:  444:          CFE_SB_GetAppTskName(TskId,FullName),(int)PipeId);
+        1:  445:        return CFE_SB_BAD_ARGUMENT;
+        -:  446:    }/* end if */
+        -:  447:
+        3:  448:    CFE_SB.PipeTbl[PipeTblIdx].Opts = Opts;
+        -:  449:
+        3:  450:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        3:  451:    CFE_EVS_SendEventWithAppID(CFE_SB_SETPIPEOPTS_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -:  452:          "Pipe opts set:id %d,owner %s, opts=0x%02x",(int)PipeId, CFE_SB_GetAppTskName(Owner,FullName), (unsigned int)Opts);
+        -:  453:
+        3:  454:    return CFE_SUCCESS;
+        -:  455:}/* end CFE_SB_SetPipeOpts */
+        -:  456:
+        -:  457:/******************************************************************************
+        -:  458:**  Function:  CFE_SB_GetPipeOpts()
+        -:  459:**
+        -:  460:**  Purpose:
+        -:  461:**  Gets the current pipe options.
+        -:  462:**
+        -:  463:**  Arguments:
+        -:  464:**    PipeId  - The ID of the pipe for the options.
+        -:  465:**    OptsPtr - Pointer to receive the opts.
+        -:  466:**
+        -:  467:**  Return:
+        -:  468:**    CFE_SUCCESS or cFE Error Code
+        -:  469:*/
+        3:  470:int32 CFE_SB_GetPipeOpts(CFE_SB_PipeId_t PipeId, uint8 *OptsPtr)
+        -:  471:{
+        3:  472:    uint8         PipeTblIdx = 0;
+        3:  473:    int32         RtnFromVal = 0;
+        3:  474:    uint32        TskId = 0;
+        -:  475:    char          FullName[(OS_MAX_API_NAME * 2)];
+        -:  476:
+        3:  477:    if(OptsPtr == NULL)
+        -:  478:    {
+        1:  479:        CFE_SB.HKTlmMsg.Payload.PipeOptsErrorCounter++;
+        1:  480:        CFE_EVS_SendEventWithAppID(CFE_SB_GETPIPEOPTS_PTR_ERR_EID, CFE_EVS_EventType_ERROR, CFE_SB.AppId,
+        -:  481:          "Pipe Opts Error:Bad Argument,Requestor %s",
+        -:  482:          CFE_SB_GetAppTskName(TskId,FullName));
+        1:  483:        return CFE_SB_BAD_ARGUMENT;
+        -:  484:    }
+        -:  485:
+        -:  486:    /* take semaphore to prevent a task switch during this call */
+        2:  487:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  488:
+        -:  489:    /* get TaskId of caller for events */
+        2:  490:    TskId = OS_TaskGetId();
+        -:  491:
+        -:  492:    /* check input parameter */
+        2:  493:    PipeTblIdx = CFE_SB_GetPipeIdx(PipeId);
+        2:  494:    RtnFromVal = CFE_SB_ValidatePipeId(PipeId);
+        -:  495:
+        2:  496:    if((RtnFromVal != CFE_SUCCESS)||(PipeTblIdx == CFE_SB_INVALID_PIPE))
+        -:  497:    {
+        1:  498:        CFE_SB.HKTlmMsg.Payload.PipeOptsErrorCounter++;
+        1:  499:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  500:        CFE_EVS_SendEventWithAppID(CFE_SB_GETPIPEOPTS_ID_ERR_EID, CFE_EVS_EventType_ERROR, CFE_SB.AppId,
+        -:  501:          "Pipe Opts Error:Bad Argument,PipedId %d,Requestor %s,Idx %d,Stat %d",
+        -:  502:          (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName),(int)PipeTblIdx,(int)RtnFromVal);
+        1:  503:        return CFE_SB_BAD_ARGUMENT;
+        -:  504:    }/* end if */
+        -:  505:
+        1:  506:    *OptsPtr = CFE_SB.PipeTbl[PipeTblIdx].Opts;
+        -:  507:
+        1:  508:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  509:    CFE_EVS_SendEventWithAppID(CFE_SB_GETPIPEOPTS_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        1:  510:          "Pipe opts set:id %d, opts=0x%02x",(int)PipeId, (unsigned int)*OptsPtr);
+        1:  511:    return CFE_SUCCESS;
+        -:  512:}/* end CFE_SB_GetPipeOpts */
+        -:  513:
+        -:  514:
+        -:  515:/******************************************************************************
+        -:  516:** Name:    CFE_SB_SubscribeEx
+        -:  517:**
+        -:  518:** Purpose: API to globally subscribe to a message when QOS and MsgLim defaults
+        -:  519:**          are insufficient.
+        -:  520:**
+        -:  521:** Assumptions, External Events, and Notes:
+        -:  522:**
+        -:  523:**          Note: Qos default: priority is low, reliability is low
+        -:  524:**          Note: MsgLim default: 4, see Input Arguments below for more detail
+        -:  525:**          Note: Qos parameter is currently unused by the fsw. It is recommended
+        -:  526:**                to give a value of zero for Quality.Priority and Quality.Reliability
+        -:  527:**
+        -:  528:** Date Written:
+        -:  529:**          04/25/2005
+        -:  530:**
+        -:  531:** Input Arguments:
+        -:  532:**          MsgId   - The requesting message
+        -:  533:**          PipeId  - The Pipe ID to send the message to
+        -:  534:**          Quality - Quality of Service (Qos) - priority and reliability,
+        -:  535:**                    see note above for recommended settings
+        -:  536:**          MsgLim  - Max number of messages, with this MsgId, allowed on the
+        -:  537:**                    pipe at any time.
+        -:  538:**
+        -:  539:** Output Arguments:
+        -:  540:**          None
+        -:  541:**
+        -:  542:** Return Values:
+        -:  543:**          Status
+        -:  544:**
+        -:  545:******************************************************************************/
+        4:  546:int32  CFE_SB_SubscribeEx(CFE_SB_MsgId_t   MsgId,
+        -:  547:                          CFE_SB_PipeId_t  PipeId,
+        -:  548:                          CFE_SB_Qos_t     Quality,
+        -:  549:                          uint16           MsgLim)
+        -:  550:{
+        4:  551:    return CFE_SB_SubscribeFull(MsgId,PipeId,Quality,MsgLim,(uint8)CFE_SB_GLOBAL);
+        -:  552:
+        -:  553:}/* end CFE_SB_SubscribeEx */
+        -:  554:
+        -:  555:
+        -:  556:
+        -:  557:
+        -:  558:/******************************************************************************
+        -:  559:** Name:    CFE_SB_SubscribeLocal
+        -:  560:**
+        -:  561:** Purpose: CFE Internal API to locally subscribe to a message when QOS and
+        -:  562:**          MsgLim defaults are insufficient.
+        -:  563:**
+        -:  564:** Assumptions, External Events, and Notes:
+        -:  565:**
+        -:  566:**          Note: Qos default: priority is low, reliability is low
+        -:  567:**                MsgLim default: 4 - meaning at most 4 messages of given
+        -:  568:**                                    MsgId allowed on the given PipeId.
+        -:  569:**
+        -:  570:** Date Written:
+        -:  571:**          04/25/2005
+        -:  572:**
+        -:  573:** Input Arguments:
+        -:  574:**          MsgId   - The requesting message
+        -:  575:**          PipeId  - The Pipe ID to send the message to
+        -:  576:**          MsgLim  - Max number of messages, with this MsgId, allowed on the
+        -:  577:**                    pipe at any time.
+        -:  578:**
+        -:  579:** Output Arguments:
+        -:  580:**          None
+        -:  581:**
+        -:  582:** Return Values:
+        -:  583:**          Status
+        -:  584:**
+        -:  585:******************************************************************************/
+        4:  586:int32 CFE_SB_SubscribeLocal(CFE_SB_MsgId_t   MsgId,
+        -:  587:                            CFE_SB_PipeId_t  PipeId,
+        -:  588:                            uint16           MsgLim)
+        -:  589:{
+        4:  590:    return CFE_SB_SubscribeFull(MsgId,PipeId,CFE_SB_Default_Qos,MsgLim,
+        -:  591:                                (uint8)CFE_SB_LOCAL);
+        -:  592:
+        -:  593:}/* end CFE_SB_SubscribeLocal */
+        -:  594:
+        -:  595:
+        -:  596:
+        -:  597:
+        -:  598:/******************************************************************************
+        -:  599:** Name:    CFE_SB_Subscribe
+        -:  600:**
+        -:  601:** Purpose: API to locally subscribe to a message when QOS and MsgLim defaults
+        -:  602:**          are sufficient.
+        -:  603:**
+        -:  604:** Assumptions, External Events, and Notes:
+        -:  605:**
+        -:  606:**          Note: Qos default: priority is low, reliability is low
+        -:  607:**                MsgLim default: 4 - meaning at most 4 messages of given
+        -:  608:**                                    MsgId allowed on the given PipeId.
+        -:  609:**
+        -:  610:** Date Written:
+        -:  611:**          04/25/2005
+        -:  612:**
+        -:  613:** Input Arguments:
+        -:  614:**          MsgId   - The requesting message
+        -:  615:**          PipeId  - The Pipe ID to send the message to
+        -:  616:**
+        -:  617:** Output Arguments:
+        -:  618:**          None
+        -:  619:**
+        -:  620:** Return Values:
+        -:  621:**          Status
+        -:  622:**
+        -:  623:******************************************************************************/
+      429:  624:int32 CFE_SB_Subscribe(CFE_SB_MsgId_t   MsgId,
+        -:  625:                       CFE_SB_PipeId_t  PipeId)
+        -:  626:{
+      429:  627:    return CFE_SB_SubscribeFull(MsgId,PipeId,CFE_SB_Default_Qos,
+        -:  628:                               (uint16)CFE_PLATFORM_SB_DEFAULT_MSG_LIMIT,
+        -:  629:                               (uint8)CFE_SB_GLOBAL);
+        -:  630:
+        -:  631:}/* end CFE_SB_Subscribe */
+        -:  632:
+        -:  633:
+        -:  634:/******************************************************************************
+        -:  635:** Name:    CFE_SB_SubscribeFull
+        -:  636:**
+        -:  637:** Purpose: CFE Internal API used to subscribe to a message. Contains an input
+        -:  638:**          parameter for all possible subscription choices. This function is
+        -:  639:**          called by CFE_SB_SubscribeEx, CFE_SB_Subscribe and
+        -:  640:**          CFE_SB_SubscribeLocal.
+        -:  641:**
+        -:  642:** Assumptions, External Events, and Notes:
+        -:  643:**          Has the same typedef as the message Id
+        -:  644:**
+        -:  645:** Date Written:
+        -:  646:**          04/25/2005
+        -:  647:**
+        -:  648:** Input Arguments:
+        -:  649:**          MsgId - Mission unique identifier for the message being requested
+        -:  650:**          PipeId  - The Pipe ID to send the message to
+        -:  651:**          Quality - Quality of Service (Qos) - priority and reliability
+        -:  652:**          MsgLim  - Max number of messages, with this MsgId, allowed on the
+        -:  653:**                    pipe at any time.
+        -:  654:**          Scope   - Local subscription or broadcasted to peers
+        -:  655:**
+        -:  656:** Output Arguments:
+        -:  657:**          None
+        -:  658:**
+        -:  659:** Return Values:
+        -:  660:**          Status
+        -:  661:**
+        -:  662:******************************************************************************/
+      439:  663:int32  CFE_SB_SubscribeFull(CFE_SB_MsgId_t   MsgId,
+        -:  664:                            CFE_SB_PipeId_t  PipeId,
+        -:  665:                            CFE_SB_Qos_t     Quality,
+        -:  666:                            uint16           MsgLim,
+        -:  667:                            uint8            Scope)
+        -:  668:{
+        -:  669:    CFE_SB_MsgRouteIdx_t RouteIdx;
+        -:  670:    CFE_SB_RouteEntry_t* RoutePtr;
+        -:  671:    int32  Stat;
+        -:  672:    CFE_SB_MsgKey_t   MsgKey;
+      439:  673:    uint32 TskId = 0;
+      439:  674:    uint32 AppId = 0xFFFFFFFF;
+        -:  675:    uint8  PipeIdx;
+      439:  676:    CFE_SB_DestinationD_t *DestBlkPtr = NULL;
+        -:  677:    char   FullName[(OS_MAX_API_NAME * 2)];
+        -:  678:
+        -:  679:    /* take semaphore to prevent a task switch during this call */
+      439:  680:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  681:
+        -:  682:    /* get task id for events */
+      439:  683:    TskId = OS_TaskGetId();
+        -:  684:
+        -:  685:    /* get the callers Application Id */
+      439:  686:    CFE_ES_GetAppID(&AppId);
+        -:  687:
+        -:  688:    /* check that the pipe has been created */
+      439:  689:    PipeIdx = CFE_SB_GetPipeIdx(PipeId);
+      439:  690:    if(PipeIdx==CFE_SB_INVALID_PIPE){
+        2:  691:      CFE_SB.HKTlmMsg.Payload.SubscribeErrorCounter++;
+        2:  692:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2:  693:      CFE_EVS_SendEventWithAppID(CFE_SB_SUB_INV_PIPE_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  694:          "Subscribe Err:Invalid Pipe Id,Msg=0x%x,PipeId=%d,App %s",(unsigned int)MsgId,(int)PipeId,
+        -:  695:          CFE_SB_GetAppTskName(TskId,FullName));
+        2:  696:      return CFE_SB_BAD_ARGUMENT;
+        -:  697:    }/* end if */
+        -:  698:
+        -:  699:    /* check that the requestor is the owner of the pipe */
+      437:  700:    if(CFE_SB.PipeTbl[PipeIdx].AppId != AppId){
+        1:  701:      CFE_SB.HKTlmMsg.Payload.SubscribeErrorCounter++;
+        1:  702:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  703:      CFE_EVS_SendEventWithAppID(CFE_SB_SUB_INV_CALLER_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  704:          "Subscribe Err:Caller(%s) is not the owner of pipe %d,Msg=0x%x",
+        -:  705:          CFE_SB_GetAppTskName(TskId,FullName),(int)PipeId,(unsigned int)MsgId);
+        1:  706:      return CFE_SB_BAD_ARGUMENT;
+        -:  707:    }/* end if */
+        -:  708:
+        -:  709:    /* check message id key and scope */
+      436:  710:    if(!CFE_SB_IsValidMsgId(MsgId) || (Scope > 1))
+        -:  711:    {
+        2:  712:        CFE_SB.HKTlmMsg.Payload.SubscribeErrorCounter++;
+        2:  713:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2:  714:        CFE_EVS_SendEventWithAppID(CFE_SB_SUB_ARG_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  715:          "Subscribe Err:Bad Arg,MsgId 0x%x,PipeId %d,app %s,scope %d",
+        -:  716:          (unsigned int)MsgId,(int)PipeId,CFE_SB_GetAppTskName(TskId,FullName),Scope);
+        2:  717:        return CFE_SB_BAD_ARGUMENT;
+        -:  718:    }/* end if */
+        -:  719:
+        -:  720:    /* Convert the API MsgId into the SB internal representation MsgKey */
+      434:  721:    MsgKey = CFE_SB_ConvertMsgIdtoMsgKey(MsgId);
+        -:  722:
+        -:  723:    /* check for duplicate subscription */
+      434:  724:    if(CFE_SB_DuplicateSubscribeCheck(MsgKey,PipeId)==CFE_SB_DUPLICATE){
+        2:  725:        CFE_SB.HKTlmMsg.Payload.DuplicateSubscriptionsCounter++;
+        2:  726:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2:  727:        CFE_EVS_SendEventWithAppID(CFE_SB_DUP_SUBSCRIP_EID,CFE_EVS_EventType_INFORMATION,CFE_SB.AppId,
+        -:  728:          "Duplicate Subscription,MsgId 0x%x on %s pipe,app %s",
+        -:  729:           (unsigned int)MsgId,CFE_SB_GetPipeName(PipeId),CFE_SB_GetAppTskName(TskId,FullName));
+        2:  730:        return CFE_SUCCESS;
+        -:  731:    }/* end if */
+        -:  732:
+        -:  733:    /*
+        -:  734:    ** If there has been a subscription for this message id earlier,
+        -:  735:    ** get the element number in the routing table.
+        -:  736:    */
+      432:  737:    RouteIdx = CFE_SB_GetRoutingTblIdx(MsgKey);
+        -:  738:
+        -:  739:    /* if not first subscription for this message KEY ... */
+      432:  740:    if(CFE_SB_IsValidRouteIdx(RouteIdx))
+        -:  741:    {
+       32:  742:        RoutePtr = CFE_SB_GetRoutePtrFromIdx(RouteIdx);
+        -:  743:
+        -:  744:        /*
+        -:  745:         * FIXME: If a hash or other conversion is used between MsgId and MsgKey,
+        -:  746:         * then it is possible that this existing route is for a different MsgId.
+        -:  747:         *
+        -:  748:         * The MsgId should be checked against the "MsgId" in the route here.
+        -:  749:         *
+        -:  750:         * However it is not possible to have a mismatch in the default case where
+        -:  751:         * MsgKey == MsgId
+        -:  752:         */
+        -:  753:    }
+        -:  754:    else
+        -:  755:    {
+        -:  756:        /* Get the index to the first available element in the routing table */
+      400:  757:        RouteIdx = CFE_SB_RouteIdxPop_Unsync();
+        -:  758:
+        -:  759:        /* if all routing table elements are used, send event */
+      400:  760:        if(!CFE_SB_IsValidRouteIdx(RouteIdx)){
+        1:  761:            CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  762:            CFE_EVS_SendEventWithAppID(CFE_SB_MAX_MSGS_MET_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  763:              "Subscribe Err:Max Msgs(%d)In Use,MsgId 0x%x,pipe %s,app %s",
+        -:  764:              CFE_PLATFORM_SB_MAX_MSG_IDS,(unsigned int)MsgId,CFE_SB_GetPipeName(PipeId),CFE_SB_GetAppTskName(TskId,FullName));
+        1:  765:            return CFE_SB_MAX_MSGS_MET;
+        -:  766:        }/* end if */
+        -:  767:
+        -:  768:        /* Increment the MsgIds in use ctr and if it's > the high water mark,*/
+        -:  769:        /* adjust the high water mark */
+      399:  770:        CFE_SB.StatTlmMsg.Payload.MsgIdsInUse++;
+      399:  771:        if(CFE_SB.StatTlmMsg.Payload.MsgIdsInUse > CFE_SB.StatTlmMsg.Payload.PeakMsgIdsInUse){
+      395:  772:           CFE_SB.StatTlmMsg.Payload.PeakMsgIdsInUse = CFE_SB.StatTlmMsg.Payload.MsgIdsInUse;
+        -:  773:        }/* end if */
+        -:  774:
+        -:  775:        /* populate the look up table with the routing table index */
+      399:  776:        CFE_SB_SetRoutingTblIdx(MsgKey,RouteIdx);
+        -:  777:
+        -:  778:        /* label the new routing block with the message identifier */
+      399:  779:        RoutePtr = CFE_SB_GetRoutePtrFromIdx(RouteIdx);
+      399:  780:        RoutePtr->MsgId = MsgId;
+        -:  781:
+        -:  782:    }/* end if */
+        -:  783:
+      431:  784:    if(RoutePtr->Destinations >= CFE_PLATFORM_SB_MAX_DEST_PER_PKT){
+        1:  785:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1:  786:        CFE_EVS_SendEventWithAppID(CFE_SB_MAX_DESTS_MET_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  787:            "Subscribe Err:Max Dests(%d)In Use For Msg 0x%x,pipe %s,app %s",
+        -:  788:             CFE_PLATFORM_SB_MAX_DEST_PER_PKT,(unsigned int)MsgId,CFE_SB_GetPipeName(PipeId),
+        -:  789:             CFE_SB_GetAppTskName(TskId,FullName));
+        -:  790:
+        1:  791:        return CFE_SB_MAX_DESTS_MET;
+        -:  792:    }/* end if */
+        -:  793:
+      430:  794:    DestBlkPtr = CFE_SB_GetDestinationBlk();
+      430:  795:    if(DestBlkPtr == NULL){
+        2:  796:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2:  797:        CFE_EVS_SendEventWithAppID(CFE_SB_DEST_BLK_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -:  798:            "Subscribe Err:Request for Destination Blk failed for Msg 0x%x", (unsigned int)MsgId);
+        2:  799:        return CFE_SB_BUF_ALOC_ERR;
+        -:  800:    }/* end if */
+        -:  801:
+        -:  802:    /* initialize destination block */
+      428:  803:    DestBlkPtr -> PipeId = PipeId;
+      428:  804:    DestBlkPtr -> MsgId2PipeLim = (uint16)MsgLim;
+      428:  805:    DestBlkPtr -> Active = CFE_SB_ACTIVE;
+      428:  806:    DestBlkPtr -> BuffCount = 0;
+      428:  807:    DestBlkPtr -> DestCnt = 0;
+      428:  808:    DestBlkPtr -> Scope = Scope;
+      428:  809:    DestBlkPtr -> Prev = NULL;
+      428:  810:    DestBlkPtr -> Next = NULL;
+        -:  811:
+        -:  812:    /* add destination block to head of list */
+      428:  813:    CFE_SB_AddDest(RoutePtr, DestBlkPtr);
+        -:  814:
+      428:  815:    RoutePtr->Destinations++;
+        -:  816:
+      428:  817:    CFE_SB.StatTlmMsg.Payload.SubscriptionsInUse++;
+      428:  818:    if(CFE_SB.StatTlmMsg.Payload.SubscriptionsInUse > CFE_SB.StatTlmMsg.Payload.PeakSubscriptionsInUse)
+        -:  819:    {
+      409:  820:       CFE_SB.StatTlmMsg.Payload.PeakSubscriptionsInUse = CFE_SB.StatTlmMsg.Payload.SubscriptionsInUse;
+        -:  821:    }/* end if */
+        -:  822:
+      428:  823:    if((CFE_SB.SubscriptionReporting == CFE_SB_ENABLE)&&(Scope==CFE_SB_GLOBAL)){
+        2:  824:      CFE_SB.SubRprtMsg.Payload.MsgId = MsgId;
+        2:  825:      CFE_SB.SubRprtMsg.Payload.Pipe = PipeId;
+        2:  826:      CFE_SB.SubRprtMsg.Payload.Qos.Priority = Quality.Priority;
+        2:  827:      CFE_SB.SubRprtMsg.Payload.Qos.Reliability = Quality.Reliability;
+        2:  828:      CFE_SB.SubRprtMsg.Payload.SubType = CFE_SB_SUBSCRIPTION;
+        2:  829:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2:  830:      Stat = CFE_SB_SendMsg((CFE_SB_Msg_t *)&CFE_SB.SubRprtMsg);
+        2:  831:      CFE_EVS_SendEventWithAppID(CFE_SB_SUBSCRIPTION_RPT_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -:  832:            "Sending Subscription Report Msg=0x%x,Pipe=%d,Stat=0x%x",
+        -:  833:            (unsigned int)MsgId,(int)PipeId,(unsigned int)Stat);
+        2:  834:      CFE_SB_LockSharedData(__func__,__LINE__);/* to prevent back-to-back unlock */
+        -:  835:    }/* end if */
+        -:  836:
+        -:  837:    /* release the semaphore */
+      428:  838:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -:  839:
+      428:  840:    CFE_EVS_SendEventWithAppID(CFE_SB_SUBSCRIPTION_RCVD_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -:  841:        "Subscription Rcvd:MsgId 0x%x on %s(%d),app %s",
+        -:  842:         (unsigned int)MsgId,CFE_SB_GetPipeName(PipeId),(int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        -:  843:
+      428:  844:    return CFE_SUCCESS;
+        -:  845:
+        -:  846:}/* end CFE_SB_SubscribeFull */
+        -:  847:
+        -:  848:
+        -:  849:/******************************************************************************
+        -:  850:** Name:    CFE_SB_Unsubscribe
+        -:  851:**
+        -:  852:** Purpose: API used to unsubscribe to a message.
+        -:  853:**
+        -:  854:** Date Written:
+        -:  855:**          04/25/2005
+        -:  856:**
+        -:  857:** Input Arguments:
+        -:  858:**          MsgId
+        -:  859:**          PipeId
+        -:  860:**
+        -:  861:** Output Arguments:
+        -:  862:**          None
+        -:  863:**
+        -:  864:** Return Values:
+        -:  865:**          Status
+        -:  866:**
+        -:  867:******************************************************************************/
+       13:  868:int32 CFE_SB_Unsubscribe(CFE_SB_MsgId_t MsgId, CFE_SB_PipeId_t PipeId)
+        -:  869:{
+       13:  870:    uint32  CallerId = 0xFFFFFFFF;
+       13:  871:    int32   Status = 0;
+        -:  872:
+        -:  873:    /* get the callers Application Id */
+       13:  874:    CFE_ES_GetAppID(&CallerId);
+        -:  875:
+       13:  876:    Status = CFE_SB_UnsubscribeFull(MsgId, PipeId, (uint8)CFE_SB_GLOBAL,CallerId);
+        -:  877:
+       13:  878:    return Status;
+        -:  879:
+        -:  880:}/* end CFE_SB_Unsubscribe */
+        -:  881:
+        -:  882:
+        -:  883:/******************************************************************************
+        -:  884:** Name:    CFE_SB_UnsubscribeLocal
+        -:  885:**
+        -:  886:** Purpose: CFE Internal API used to locally unsubscribe to a message. This
+        -:  887:**          request to cancel a subscription will not be sent to peers.
+        -:  888:**
+        -:  889:** Date Written:
+        -:  890:**          04/25/2005
+        -:  891:**
+        -:  892:** Input Arguments:
+        -:  893:**          MsgId
+        -:  894:**          PipeId
+        -:  895:**
+        -:  896:** Output Arguments:
+        -:  897:**          None
+        -:  898:**
+        -:  899:** Return Values:
+        -:  900:**          Status
+        -:  901:**
+        -:  902:******************************************************************************/
+        1:  903:int32 CFE_SB_UnsubscribeLocal(CFE_SB_MsgId_t MsgId, CFE_SB_PipeId_t PipeId)
+        -:  904:{
+        1:  905:    uint32  CallerId = 0xFFFFFFFF;
+        1:  906:    int32   Status = 0;
+        -:  907:
+        -:  908:    /* get the callers Application Id */
+        1:  909:    CFE_ES_GetAppID(&CallerId);
+        -:  910:
+        1:  911:    Status = CFE_SB_UnsubscribeFull(MsgId, PipeId, (uint8)CFE_SB_LOCAL,CallerId);
+        -:  912:
+        1:  913:    return Status;
+        -:  914:
+        -:  915:}/* end CFE_SB_UnsubscribeLocal */
+        -:  916:
+        -:  917:
+        -:  918:/******************************************************************************
+        -:  919:** Name:    CFE_SB_UnsubscribeAppId
+        -:  920:**
+        -:  921:** Purpose: CFE Internal API intented to be called by CFE_ES when an applications
+        -:  922:**          SB resources need to be freed. The regular unsibscribe api won't work
+        -:  923:**          because it does a check to ensure the caller is the owner of the pipe.
+        -:  924:**
+        -:  925:** Date Written:
+        -:  926:**          03/15/2007
+        -:  927:**
+        -:  928:** Input Arguments:
+        -:  929:**          MsgId
+        -:  930:**          PipeId
+        -:  931:**          AppId
+        -:  932:**
+        -:  933:** Output Arguments:
+        -:  934:**          None
+        -:  935:**
+        -:  936:** Return Values:
+        -:  937:**          Status
+        -:  938:**
+        -:  939:******************************************************************************/
+      415:  940:int32 CFE_SB_UnsubscribeWithAppId(CFE_SB_MsgId_t MsgId,
+        -:  941:                              CFE_SB_PipeId_t PipeId,
+        -:  942:                              uint32 AppId)
+        -:  943:{
+      415:  944:    int32   Status = 0;
+        -:  945:
+      415:  946:    Status = CFE_SB_UnsubscribeFull(MsgId, PipeId, (uint8)CFE_SB_LOCAL, AppId);
+        -:  947:
+      415:  948:    return Status;
+        -:  949:
+        -:  950:}/* end CFE_SB_UnsubscribeWithAppId */
+        -:  951:
+        -:  952:
+        -:  953:/******************************************************************************
+        -:  954:** Name:    CFE_SB_UnsubscribeFull
+        -:  955:**
+        -:  956:** Purpose: CFE Internal API used to unsubscribe to a message.
+        -:  957:**
+        -:  958:** Assumptions, External Events, and Notes:
+        -:  959:**
+        -:  960:**
+        -:  961:** Notes:This function cannot be called directly,it would not be semaphore protected.
+        -:  962:**       Also,if more than one subscription is found, this function will remove all
+        -:  963:**       entries that match.
+        -:  964:**
+        -:  965:** Date Written:
+        -:  966:**          04/25/2005
+        -:  967:**
+        -:  968:** Input Arguments:
+        -:  969:**          MsgId
+        -:  970:**          PipeId
+        -:  971:**          Scope
+        -:  972:**          AppId
+        -:  973:**
+        -:  974:** Output Arguments:
+        -:  975:**          None
+        -:  976:**
+        -:  977:** Return Values:
+        -:  978:**          Status
+        -:  979:**
+        -:  980:******************************************************************************/
+      431:  981:int32 CFE_SB_UnsubscribeFull(CFE_SB_MsgId_t MsgId,CFE_SB_PipeId_t PipeId,
+        -:  982:                             uint8 Scope,uint32 AppId)
+        -:  983:{
+        -:  984:    CFE_SB_MsgKey_t MsgKey;
+        -:  985:    CFE_SB_MsgRouteIdx_t RouteIdx;
+        -:  986:    CFE_SB_RouteEntry_t* RoutePtr;
+        -:  987:    uint32  PipeIdx;
+      431:  988:    uint32  TskId = 0;
+      431:  989:    uint32  MatchFound = FALSE;
+        -:  990:    int32   Stat;
+      431:  991:    CFE_SB_DestinationD_t   *DestPtr = NULL;
+        -:  992:    char    FullName[(OS_MAX_API_NAME * 2)];
+        -:  993:
+        -:  994:
+        -:  995:    /* take semaphore to prevent a task switch during this call */
+      431:  996:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -:  997:
+        -:  998:    /* get task id for events */
+      431:  999:    TskId = OS_TaskGetId();
+        -: 1000:
+        -: 1001:    /* check that the pipe has been created */
+      431: 1002:    PipeIdx = CFE_SB_GetPipeIdx(PipeId);
+      431: 1003:    if(PipeIdx==CFE_SB_INVALID_PIPE){
+        1: 1004:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1005:      CFE_EVS_SendEventWithAppID(CFE_SB_UNSUB_INV_PIPE_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1006:            "Unsubscribe Err:Invalid Pipe Id Msg=0x%x,Pipe=%d,app=%s",
+        -: 1007:            (unsigned int)MsgId,(int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        1: 1008:      return CFE_SB_BAD_ARGUMENT;
+        -: 1009:    }/* end if */
+        -: 1010:
+        -: 1011:    /* if given 'AppId' is not the owner of the pipe, send error event and return */
+      430: 1012:    if(CFE_SB.PipeTbl[PipeIdx].AppId != AppId){
+        1: 1013:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1014:      CFE_EVS_SendEventWithAppID(CFE_SB_UNSUB_INV_CALLER_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1015:            "Unsubscribe Err:Caller(%s) is not the owner of pipe %d,Msg=0x%x",
+        -: 1016:            CFE_SB_GetAppTskName(TskId,FullName),(int)PipeId,(unsigned int)MsgId);
+        1: 1017:      return CFE_SB_BAD_ARGUMENT;
+        -: 1018:    }/* end if */
+        -: 1019:
+        -: 1020:    /* check input parameters */
+      857: 1021:    if(!CFE_SB_IsValidMsgId(MsgId) ||
+      428: 1022:       (CFE_SB_ValidatePipeId(PipeId) != CFE_SUCCESS)||
+        -: 1023:       (Scope > 1))
+        -: 1024:    {
+        3: 1025:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        3: 1026:        CFE_EVS_SendEventWithAppID(CFE_SB_UNSUB_ARG_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1027:            "UnSubscribe Err:Bad Arg,MsgId 0x%x,PipeId %d,app %s,scope %d",
+        -: 1028:            (unsigned int)MsgId,(int)PipeId,CFE_SB_GetAppTskName(TskId,FullName),(int)Scope);
+        3: 1029:        return CFE_SB_BAD_ARGUMENT;
+        -: 1030:    }/* end if */
+        -: 1031:
+        -: 1032:    /* get index into routing table */
+      426: 1033:    MsgKey = CFE_SB_ConvertMsgIdtoMsgKey(MsgId);
+      426: 1034:    RouteIdx = CFE_SB_GetRoutingTblIdx(MsgKey);
+        -: 1035:
+        -: 1036:    /* if there are no subscriptions for this message id... */
+      426: 1037:    if(!CFE_SB_IsValidRouteIdx(RouteIdx)){
+        2: 1038:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1039:        CFE_EVS_SendEventWithAppID(CFE_SB_UNSUB_NO_SUBS_EID,CFE_EVS_EventType_INFORMATION,CFE_SB.AppId,
+        -: 1040:            "Unsubscribe Err:No subs for Msg 0x%x on %s,app %s",
+        -: 1041:            (unsigned int)MsgId,CFE_SB_GetPipeName(PipeId),CFE_SB_GetAppTskName(TskId,FullName));
+        2: 1042:        return CFE_SUCCESS;
+        -: 1043:    }/* end if */
+        -: 1044:
+        -: 1045:    /* At this point, there must be at least one destination. */
+        -: 1046:    /* So the value of 'ListHeadPtr' will not be NULL by design */
+      424: 1047:    RoutePtr = CFE_SB_GetRoutePtrFromIdx(RouteIdx);
+        -: 1048:
+        -: 1049:    /* search the list for a matching pipe id */
+      424: 1050:    DestPtr = RoutePtr->ListHeadPtr;
+        -: 1051:
+        -: 1052:    do{
+        -: 1053:
+      560: 1054:        if(DestPtr->PipeId == PipeId){
+        -: 1055:            /* match found, remove node from list */
+      423: 1056:            CFE_SB_RemoveDest(RoutePtr,DestPtr);
+        -: 1057:
+        -: 1058:            /* return node to memory pool */
+      423: 1059:            CFE_SB_PutDestinationBlk(DestPtr);
+        -: 1060:
+      423: 1061:            RoutePtr->Destinations--;
+      423: 1062:            CFE_SB.StatTlmMsg.Payload.SubscriptionsInUse--;
+        -: 1063:
+      423: 1064:            MatchFound = TRUE;
+        -: 1065:
+        -: 1066:        }/* end if */
+        -: 1067:
+      560: 1068:        DestPtr = DestPtr->Next;
+        -: 1069:
+      560: 1070:    }while((MatchFound == FALSE)&&(DestPtr != NULL));
+        -: 1071:
+        -: 1072:    /* if 'Destinations' was decremented to zero above... */
+      424: 1073:    if(RoutePtr->Destinations==0){
+      394: 1074:        CFE_SB.StatTlmMsg.Payload.MsgIdsInUse--;
+      394: 1075:        CFE_SB_RouteIdxPush_Unsync(RouteIdx); /* Return the idx to the available list (stack) for reuse */
+      394: 1076:        CFE_SB_SetRoutingTblIdx(MsgKey,CFE_SB_INVALID_ROUTE_IDX);
+        -: 1077:
+        -: 1078:        /* Send unsubscribe report only if there are zero requests for this pkt */
+      394: 1079:        if((CFE_SB.SubscriptionReporting == CFE_SB_ENABLE)&&
+        -: 1080:          (Scope == CFE_SB_GLOBAL))
+        -: 1081:        {
+        2: 1082:          CFE_SB.SubRprtMsg.Payload.MsgId = MsgId;
+        2: 1083:          CFE_SB.SubRprtMsg.Payload.Pipe = PipeId;
+        2: 1084:          CFE_SB.SubRprtMsg.Payload.Qos.Priority = 0;
+        2: 1085:          CFE_SB.SubRprtMsg.Payload.Qos.Reliability = 0;
+        2: 1086:          CFE_SB.SubRprtMsg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
+        2: 1087:          CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1088:          Stat = CFE_SB_SendMsg((CFE_SB_Msg_t *)&CFE_SB.SubRprtMsg);
+        2: 1089:          CFE_EVS_SendEventWithAppID(CFE_SB_UNSUBSCRIPTION_RPT_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -: 1090:            "Sending Unsubscription Report Msg=0x%x,Pipe=%d,Stat=0x%x",
+        -: 1091:            (unsigned int)MsgId,(int)PipeId,(unsigned int)Stat);
+        2: 1092:          CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1093:        }/* end if */
+        -: 1094:
+        -: 1095:    }/* end if */
+        -: 1096:
+      424: 1097:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1098:
+      424: 1099:    CFE_EVS_SendEventWithAppID(CFE_SB_SUBSCRIPTION_REMOVED_EID,CFE_EVS_EventType_DEBUG,CFE_SB.AppId,
+        -: 1100:            "Subscription Removed:Msg 0x%x on pipe %d,app %s",
+        -: 1101:            (unsigned int)MsgId,(int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        -: 1102:
+      424: 1103:    return CFE_SUCCESS;
+        -: 1104:
+        -: 1105:}/* end CFE_SB_UnsubscribeFull */
+        -: 1106:
+        -: 1107:
+        -: 1108:
+        -: 1109:/******************************************************************************
+        -: 1110:** Name:    CFE_SB_SendMsg
+        -: 1111:**
+        -: 1112:** Purpose: API used to send a message on the software bus.
+        -: 1113:**
+        -: 1114:** Assumptions, External Events, and Notes:
+        -: 1115:**
+        -: 1116:**          Note: This function increments and tracks the source sequence
+        -: 1117:**                counter for all telemetry messages.
+        -: 1118:**
+        -: 1119:** Date Written:
+        -: 1120:**          04/25/2005
+        -: 1121:**
+        -: 1122:** Input Arguments:
+        -: 1123:**          MsgPtr
+        -: 1124:**
+        -: 1125:** Output Arguments:
+        -: 1126:**          None
+        -: 1127:**
+        -: 1128:** Return Values:
+        -: 1129:**          Status
+        -: 1130:**
+        -: 1131:******************************************************************************/
+       39: 1132:int32  CFE_SB_SendMsg(CFE_SB_Msg_t    *MsgPtr)
+        -: 1133:{
+       39: 1134:    int32   Status = 0;
+        -: 1135:
+       39: 1136:    Status = CFE_SB_SendMsgFull(MsgPtr,CFE_SB_INCREMENT_TLM,CFE_SB_SEND_ONECOPY);
+        -: 1137:
+       39: 1138:    return Status;
+        -: 1139:
+        -: 1140:}/* end CFE_SB_SendMsg */
+        -: 1141:
+        -: 1142:
+        -: 1143:
+        -: 1144:/******************************************************************************
+        -: 1145:** Name:    CFE_SB_PassMsg
+        -: 1146:**
+        -: 1147:** Purpose: API used to send a message on the software bus.
+        -: 1148:**
+        -: 1149:** Assumptions, External Events, and Notes:
+        -: 1150:**
+        -: 1151:**          Note: This function does NOT increment and track the source
+        -: 1152:**                sequence counter for telemetry messages.
+        -: 1153:**
+        -: 1154:** Date Written:
+        -: 1155:**          04/25/2005
+        -: 1156:**
+        -: 1157:** Input Arguments:
+        -: 1158:**          MsgPtr
+        -: 1159:**
+        -: 1160:** Output Arguments:
+        -: 1161:**          None
+        -: 1162:**
+        -: 1163:** Return Values:
+        -: 1164:**          Status
+        -: 1165:**
+        -: 1166:******************************************************************************/
+        1: 1167:int32  CFE_SB_PassMsg(CFE_SB_Msg_t    *MsgPtr)
+        -: 1168:{
+        1: 1169:    int32   Status = 0;
+        -: 1170:
+        1: 1171:    Status = CFE_SB_SendMsgFull(MsgPtr,CFE_SB_DO_NOT_INCREMENT,CFE_SB_SEND_ONECOPY);
+        -: 1172:
+        1: 1173:    return Status;
+        -: 1174:
+        -: 1175:}/* end CFE_SB_PassMsg */
+        -: 1176:
+        -: 1177:
+        -: 1178:
+        -: 1179:/******************************************************************************
+        -: 1180:** Name:    CFE_SB_SendMsgFull
+        -: 1181:**
+        -: 1182:** Purpose: API used to send a message on the software bus.
+        -: 1183:**
+        -: 1184:** Assumptions, External Events, and Notes:
+        -: 1185:**
+        -: 1186:**          Note: This function increments and tracks the source sequence
+        -: 1187:**                counter for all telemetry messages.
+        -: 1188:**
+        -: 1189:** Date Written:
+        -: 1190:**          04/25/2005
+        -: 1191:**
+        -: 1192:** Input Arguments:
+        -: 1193:**          MsgPtr
+        -: 1194:**          TlmCntIncrements
+        -: 1195:**          CopyMode
+        -: 1196:**
+        -: 1197:** Output Arguments:
+        -: 1198:**          None
+        -: 1199:**
+        -: 1200:** Return Values:
+        -: 1201:**          Status
+        -: 1202:**
+        -: 1203:******************************************************************************/
+       46: 1204:int32  CFE_SB_SendMsgFull(CFE_SB_Msg_t    *MsgPtr,
+        -: 1205:                          uint32           TlmCntIncrements,
+        -: 1206:                          uint32           CopyMode)
+        -: 1207:{
+        -: 1208:    CFE_SB_MsgKey_t         MsgKey;
+        -: 1209:    CFE_SB_MsgId_t          MsgId;
+        -: 1210:    int32                   Status;
+       46: 1211:    CFE_SB_DestinationD_t   *DestPtr = NULL;
+        -: 1212:    CFE_SB_PipeD_t          *PipeDscPtr;
+        -: 1213:    CFE_SB_RouteEntry_t     *RtgTblPtr;
+        -: 1214:    CFE_SB_BufferD_t        *BufDscPtr;
+        -: 1215:    uint16                  TotalMsgSize;
+        -: 1216:    CFE_SB_MsgRouteIdx_t    RtgTblIdx;
+       46: 1217:    uint32                  TskId = 0;
+        -: 1218:    uint16                  i;
+        -: 1219:    char                    FullName[(OS_MAX_API_NAME * 2)];
+        -: 1220:    CFE_SB_EventBuf_t       SBSndErr;
+        -: 1221:
+       46: 1222:    SBSndErr.EvtsToSnd = 0;
+        -: 1223:
+        -: 1224:    /* get task id for events and Sender Info*/
+       46: 1225:    TskId = OS_TaskGetId();
+        -: 1226:
+        -: 1227:    /* check input parameter */
+       46: 1228:    if(MsgPtr == NULL){
+        1: 1229:        CFE_SB_LockSharedData(__func__,__LINE__);
+        1: 1230:        CFE_SB.HKTlmMsg.Payload.MsgSendErrorCounter++;
+        1: 1231:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1232:        CFE_EVS_SendEventWithAppID(CFE_SB_SEND_BAD_ARG_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1233:            "Send Err:Bad input argument,Arg 0x%lx,App %s",
+        -: 1234:            (unsigned long)MsgPtr,CFE_SB_GetAppTskName(TskId,FullName));
+        1: 1235:        return CFE_SB_BAD_ARGUMENT;
+        -: 1236:    }/* end if */
+        -: 1237:
+       45: 1238:    MsgId = CFE_SB_GetMsgId(MsgPtr);
+        -: 1239:
+        -: 1240:    /* validate the msgid in the message */
+       45: 1241:    if(!CFE_SB_IsValidMsgId(MsgId))
+        -: 1242:    {
+        2: 1243:        CFE_SB_LockSharedData(__func__,__LINE__);
+        2: 1244:        CFE_SB.HKTlmMsg.Payload.MsgSendErrorCounter++;
+        2: 1245:        if (CopyMode == CFE_SB_SEND_ZEROCOPY)
+        -: 1246:        {
+        1: 1247:            BufDscPtr = CFE_SB_GetBufferFromCaller(MsgId, MsgPtr);
+        1: 1248:            CFE_SB_DecrBufUseCnt(BufDscPtr);
+        -: 1249:        }
+        2: 1250:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1251:        CFE_EVS_SendEventWithAppID(CFE_SB_SEND_INV_MSGID_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1252:            "Send Err:Invalid MsgId(0x%x)in msg,App %s",
+        -: 1253:            (unsigned int)MsgId,CFE_SB_GetAppTskName(TskId,FullName));
+        2: 1254:        return CFE_SB_BAD_ARGUMENT;
+        -: 1255:    }/* end if */
+        -: 1256:
+       43: 1257:    TotalMsgSize = CFE_SB_GetTotalMsgLength(MsgPtr);
+        -: 1258:
+        -: 1259:    /* Verify the size of the pkt is < or = the mission defined max */
+       43: 1260:    if(TotalMsgSize > CFE_MISSION_SB_MAX_SB_MSG_SIZE){
+        2: 1261:        CFE_SB_LockSharedData(__func__,__LINE__);
+        2: 1262:        CFE_SB.HKTlmMsg.Payload.MsgSendErrorCounter++;
+        2: 1263:        if (CopyMode == CFE_SB_SEND_ZEROCOPY)
+        -: 1264:        {
+        1: 1265:            BufDscPtr = CFE_SB_GetBufferFromCaller(MsgId, MsgPtr);
+        1: 1266:            CFE_SB_DecrBufUseCnt(BufDscPtr);
+        -: 1267:        }
+        2: 1268:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1269:        CFE_EVS_SendEventWithAppID(CFE_SB_MSG_TOO_BIG_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1270:            "Send Err:Msg Too Big MsgId=0x%x,app=%s,size=%d,MaxSz=%d",
+        -: 1271:            (unsigned int)MsgId,CFE_SB_GetAppTskName(TskId,FullName),(int)TotalMsgSize,CFE_MISSION_SB_MAX_SB_MSG_SIZE);
+        2: 1272:        return CFE_SB_MSG_TOO_BIG;
+        -: 1273:    }/* end if */
+        -: 1274:
+       41: 1275:    MsgKey = CFE_SB_ConvertMsgIdtoMsgKey(MsgId);
+        -: 1276:
+        -: 1277:    /* take semaphore to prevent a task switch during this call */
+       41: 1278:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1279:
+       41: 1280:    RtgTblIdx = CFE_SB_GetRoutingTblIdx(MsgKey);
+        -: 1281:
+        -: 1282:    /* if there have been no subscriptions for this pkt, */
+        -: 1283:    /* increment the dropped pkt cnt, send event and return success */
+       41: 1284:    if(!CFE_SB_IsValidRouteIdx(RtgTblIdx)){
+        -: 1285:
+       17: 1286:        CFE_SB.HKTlmMsg.Payload.NoSubscribersCounter++;
+        -: 1287:
+       17: 1288:        if (CopyMode == CFE_SB_SEND_ZEROCOPY){
+        1: 1289:            BufDscPtr = CFE_SB_GetBufferFromCaller(MsgId, MsgPtr);
+        1: 1290:            CFE_SB_DecrBufUseCnt(BufDscPtr);
+        -: 1291:        }
+        -: 1292:
+       17: 1293:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1294:
+        -: 1295:        /* Determine if event can be sent without causing recursive event problem */
+       17: 1296:        if(CFE_SB_RequestToSendEvent(TskId,CFE_SB_SEND_NO_SUBS_EID_BIT) == CFE_SB_GRANTED){
+        -: 1297:
+       15: 1298:           CFE_EVS_SendEventWithAppID(CFE_SB_SEND_NO_SUBS_EID,CFE_EVS_EventType_INFORMATION,CFE_SB.AppId,
+        -: 1299:              "No subscribers for MsgId 0x%x,sender %s",
+        -: 1300:              (unsigned int)MsgId,CFE_SB_GetAppTskName(TskId,FullName));
+        -: 1301:
+        -: 1302:           /* clear the bit so the task may send this event again */
+       15: 1303:           CFE_SB_FinishSendEvent(TskId,CFE_SB_SEND_NO_SUBS_EID_BIT);
+        -: 1304:        }/* end if */
+        -: 1305:
+       17: 1306:        return CFE_SUCCESS;
+        -: 1307:    }/* end if */
+        -: 1308:
+        -: 1309:    /* Allocate a new buffer. */
+       24: 1310:    if (CopyMode == CFE_SB_SEND_ZEROCOPY){
+        3: 1311:        BufDscPtr = CFE_SB_GetBufferFromCaller(MsgId, MsgPtr);
+        -: 1312:    }
+        -: 1313:    else{
+       21: 1314:        BufDscPtr = CFE_SB_GetBufferFromPool(MsgId, TotalMsgSize);
+        -: 1315:    }
+       24: 1316:    if (BufDscPtr == NULL){
+        1: 1317:        CFE_SB.HKTlmMsg.Payload.MsgSendErrorCounter++;
+        1: 1318:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1319:
+        -: 1320:        /* Determine if event can be sent without causing recursive event problem */
+        1: 1321:        if(CFE_SB_RequestToSendEvent(TskId,CFE_SB_GET_BUF_ERR_EID_BIT) == CFE_SB_GRANTED){
+        -: 1322:
+        1: 1323:            CFE_EVS_SendEventWithAppID(CFE_SB_GET_BUF_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1324:              "Send Err:Request for Buffer Failed. MsgId 0x%x,app %s,size %d",
+        -: 1325:              (unsigned int)MsgId,CFE_SB_GetAppTskName(TskId,FullName),(int)TotalMsgSize);
+        -: 1326:
+        -: 1327:            /* clear the bit so the task may send this event again */
+        1: 1328:            CFE_SB_FinishSendEvent(TskId,CFE_SB_GET_BUF_ERR_EID_BIT);
+        -: 1329:        }/* end if */
+        -: 1330:
+        1: 1331:        return CFE_SB_BUF_ALOC_ERR;
+        -: 1332:    }/* end if */
+        -: 1333:
+        -: 1334:    /* Copy the packet into the SB memory space */
+       23: 1335:    if (CopyMode != CFE_SB_SEND_ZEROCOPY){
+        -: 1336:        /* Copy the packet into the SB memory space */
+       20: 1337:        memcpy( BufDscPtr->Buffer, MsgPtr, (uint16)TotalMsgSize );
+        -: 1338:    }
+        -: 1339:
+        -: 1340:    /* Obtain the actual routing table entry from the selected index */
+       23: 1341:    RtgTblPtr = CFE_SB_GetRoutePtrFromIdx(RtgTblIdx);
+        -: 1342:
+        -: 1343:    /* For Tlm packets, increment the seq count if requested */
+       23: 1344:    if((CFE_SB_GetPktType(MsgId)==CFE_SB_TLM) &&
+        -: 1345:       (TlmCntIncrements==CFE_SB_INCREMENT_TLM)){
+       19: 1346:        RtgTblPtr->SeqCnt++;
+       19: 1347:        CFE_SB_SetMsgSeqCnt((CFE_SB_Msg_t *)BufDscPtr->Buffer,
+        -: 1348:                RtgTblPtr->SeqCnt);
+        -: 1349:    }/* end if */
+        -: 1350:
+        -: 1351:    /* store the sender information */
+       23: 1352:    if(CFE_SB.SenderReporting != 0)
+        -: 1353:    {
+       22: 1354:       BufDscPtr->Sender.ProcessorId = CFE_PSP_GetProcessorId();
+       22: 1355:       strncpy(&BufDscPtr->Sender.AppName[0],CFE_SB_GetAppTskName(TskId,FullName),OS_MAX_API_NAME);
+        -: 1356:    }
+        -: 1357:
+        -: 1358:    /* At this point there must be at least one destination for pkt */
+        -: 1359:
+        -: 1360:    /* Send the packet to all destinations  */
+       69: 1361:    for (i=0, DestPtr = RtgTblPtr -> ListHeadPtr;
+       23: 1362:            i < RtgTblPtr -> Destinations; i++, DestPtr = DestPtr -> Next)
+        -: 1363:    {
+        -: 1364:        /* The DestPtr should never be NULL in this loop, this is just extra
+        -: 1365:           protection in case of the unforseen */
+       23: 1366:        if(DestPtr == NULL)
+        -: 1367:        {
+    #####: 1368:          break;
+        -: 1369:        }
+        -: 1370:
+       23: 1371:        if (DestPtr->Active == CFE_SB_INACTIVE)    /* destination is active */
+        -: 1372:        {
+        1: 1373:            continue;
+        -: 1374:        }/*end if */
+        -: 1375:
+       22: 1376:        PipeDscPtr = &CFE_SB.PipeTbl[DestPtr->PipeId];
+        -: 1377:
+       22: 1378:        if(PipeDscPtr->Opts & CFE_SB_PIPEOPTS_IGNOREMINE)
+        -: 1379:        {
+        1: 1380:            uint32 AppId = 0xFFFFFFFF;
+        -: 1381:
+        1: 1382:            CFE_ES_GetAppID(&AppId);
+        -: 1383:
+        1: 1384:            if(PipeDscPtr->AppId == AppId)
+        -: 1385:            {
+        1: 1386:                continue;
+        -: 1387:            }
+        -: 1388:        }/* end if */
+        -: 1389:
+        -: 1390:        /* if Msg limit exceeded, log event, increment counter */
+        -: 1391:        /* and go to next destination */
+       21: 1392:        if(DestPtr->BuffCount >= DestPtr->MsgId2PipeLim){
+        -: 1393:
+        2: 1394:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].PipeId  = DestPtr->PipeId;
+        2: 1395:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].EventId = CFE_SB_MSGID_LIM_ERR_EID;
+        2: 1396:            SBSndErr.EvtsToSnd++;
+        2: 1397:            CFE_SB.HKTlmMsg.Payload.MsgLimitErrorCounter++;
+        2: 1398:            PipeDscPtr->SendErrors++;
+        -: 1399:
+        2: 1400:            continue;
+        -: 1401:        }/* end if */
+        -: 1402:
+        -: 1403:        /*
+        -: 1404:        ** Write the buffer descriptor to the queue of the pipe.  If the write
+        -: 1405:        ** failed, log info and increment the pipe's error counter.
+        -: 1406:        */
+       19: 1407:                Status = OS_QueuePut(PipeDscPtr->SysQueueId,(void *)&BufDscPtr,
+        -: 1408:                                     sizeof(CFE_SB_BufferD_t *),0);
+        -: 1409:
+       19: 1410:        if (Status == OS_SUCCESS) {
+       15: 1411:            BufDscPtr->UseCount++;    /* used for releasing buffer  */
+       15: 1412:            DestPtr->BuffCount++; /* used for checking MsgId2PipeLimit */
+       15: 1413:            DestPtr->DestCnt++;   /* used for statistics */
+       15: 1414:            if (DestPtr->PipeId < CFE_SB_TLM_PIPEDEPTHSTATS_SIZE)
+        -: 1415:            {
+        -: 1416:                CFE_SB_PipeDepthStats_t *StatObj =
+       15: 1417:                        &CFE_SB.StatTlmMsg.Payload.PipeDepthStats[DestPtr->PipeId];
+       15: 1418:                StatObj->InUse++;
+       15: 1419:                if(StatObj->InUse > StatObj->PeakInUse){
+       13: 1420:                    StatObj->PeakInUse = StatObj->InUse;
+        -: 1421:                }/* end if */
+        -: 1422:            }
+        -: 1423:
+        4: 1424:        }else if(Status == OS_QUEUE_FULL) {
+        -: 1425:
+        2: 1426:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].PipeId  = DestPtr->PipeId;
+        2: 1427:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].EventId = CFE_SB_Q_FULL_ERR_EID;
+        2: 1428:            SBSndErr.EvtsToSnd++;
+        2: 1429:            CFE_SB.HKTlmMsg.Payload.PipeOverflowErrorCounter++;
+        2: 1430:            PipeDscPtr->SendErrors++;
+        -: 1431:
+        -: 1432:
+        -: 1433:        }else{ /* Unexpected error while writing to queue. */
+        -: 1434:
+        2: 1435:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].PipeId  = DestPtr->PipeId;
+        2: 1436:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].EventId = CFE_SB_Q_WR_ERR_EID;
+        2: 1437:            SBSndErr.EvtBuf[SBSndErr.EvtsToSnd].ErrStat = Status;
+        2: 1438:            SBSndErr.EvtsToSnd++;
+        2: 1439:            CFE_SB.HKTlmMsg.Payload.InternalErrorCounter++;
+        2: 1440:            PipeDscPtr->SendErrors++;
+        -: 1441:
+        -: 1442:                }/*end if */
+        -: 1443:
+        -: 1444:    } /* end loop over destinations */
+        -: 1445:    
+        -: 1446:    /*
+        -: 1447:    ** Decrement the buffer UseCount and free buffer if cnt=0. This decrement is done
+        -: 1448:    ** because the use cnt is initialized to 1 in CFE_SB_GetBufferFromPool.
+        -: 1449:    ** Initializing the count to 1 (as opposed to zero) and decrementing it here are
+        -: 1450:    ** done to ensure the buffer gets released when there are destinations that have
+        -: 1451:    ** been disabled via ground command.
+        -: 1452:    */
+       23: 1453:    CFE_SB_DecrBufUseCnt(BufDscPtr);
+        -: 1454:
+        -: 1455:    /* release the semaphore */
+       23: 1456:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1457:
+        -: 1458:
+        -: 1459:    /* send an event for each pipe write error that may have occurred */
+       29: 1460:    for(i=0;i < SBSndErr.EvtsToSnd; i++)
+        -: 1461:    {
+        6: 1462:        if(SBSndErr.EvtBuf[i].EventId == CFE_SB_MSGID_LIM_ERR_EID)
+        -: 1463:        {
+        -: 1464:            /* Determine if event can be sent without causing recursive event problem */
+        2: 1465:            if(CFE_SB_RequestToSendEvent(TskId,CFE_SB_MSGID_LIM_ERR_EID_BIT) == CFE_SB_GRANTED){
+        -: 1466:
+        1: 1467:              CFE_ES_PerfLogEntry(CFE_MISSION_SB_MSG_LIM_PERF_ID);
+        1: 1468:              CFE_ES_PerfLogExit(CFE_MISSION_SB_MSG_LIM_PERF_ID);
+        -: 1469:
+        2: 1470:              CFE_EVS_SendEventWithAppID(CFE_SB_MSGID_LIM_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1471:                "Msg Limit Err,MsgId 0x%x,pipe %s,sender %s",
+        -: 1472:                (unsigned int)RtgTblPtr->MsgId,
+        1: 1473:                CFE_SB_GetPipeName(SBSndErr.EvtBuf[i].PipeId),
+        -: 1474:                CFE_SB_GetAppTskName(TskId,FullName));
+        -: 1475:
+        -: 1476:              /* clear the bit so the task may send this event again */
+        1: 1477:              CFE_SB_FinishSendEvent(TskId,CFE_SB_MSGID_LIM_ERR_EID_BIT);
+        -: 1478:            }/* end if */
+        -: 1479:
+        4: 1480:        }else if(SBSndErr.EvtBuf[i].EventId == CFE_SB_Q_FULL_ERR_EID){
+        -: 1481:
+        -: 1482:            /* Determine if event can be sent without causing recursive event problem */
+        2: 1483:            if(CFE_SB_RequestToSendEvent(TskId,CFE_SB_Q_FULL_ERR_EID_BIT) == CFE_SB_GRANTED){
+        -: 1484:
+        1: 1485:              CFE_ES_PerfLogEntry(CFE_MISSION_SB_PIPE_OFLOW_PERF_ID);
+        1: 1486:              CFE_ES_PerfLogExit(CFE_MISSION_SB_PIPE_OFLOW_PERF_ID);
+        -: 1487:
+        2: 1488:              CFE_EVS_SendEventWithAppID(CFE_SB_Q_FULL_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1489:                  "Pipe Overflow,MsgId 0x%x,pipe %s,sender %s",
+        -: 1490:                  (unsigned int)RtgTblPtr->MsgId,
+        1: 1491:                  CFE_SB_GetPipeName(SBSndErr.EvtBuf[i].PipeId),
+        -: 1492:                  CFE_SB_GetAppTskName(TskId,FullName));
+        -: 1493:
+        -: 1494:               /* clear the bit so the task may send this event again */
+        1: 1495:              CFE_SB_FinishSendEvent(TskId,CFE_SB_Q_FULL_ERR_EID_BIT);
+        -: 1496:            }/* end if */
+        -: 1497:
+        -: 1498:        }else{
+        -: 1499:
+        -: 1500:            /* Determine if event can be sent without causing recursive event problem */
+        2: 1501:            if(CFE_SB_RequestToSendEvent(TskId,CFE_SB_Q_WR_ERR_EID_BIT) == CFE_SB_GRANTED){
+        -: 1502:
+        2: 1503:              CFE_EVS_SendEventWithAppID(CFE_SB_Q_WR_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1504:                "Pipe Write Err,MsgId 0x%x,pipe %s,sender %s,stat 0x%x",
+        -: 1505:                (unsigned int)RtgTblPtr->MsgId,
+        1: 1506:                CFE_SB_GetPipeName(SBSndErr.EvtBuf[i].PipeId),
+        -: 1507:                CFE_SB_GetAppTskName(TskId,FullName),
+        -: 1508:                (unsigned int)SBSndErr.EvtBuf[i].ErrStat);
+        -: 1509:
+        -: 1510:               /* clear the bit so the task may send this event again */
+        1: 1511:              CFE_SB_FinishSendEvent(TskId,CFE_SB_Q_WR_ERR_EID_BIT);
+        -: 1512:            }/* end if */
+        -: 1513:
+        -: 1514:        }/* end if */
+        -: 1515:    }
+        -: 1516:
+        -: 1517:
+       23: 1518:    return CFE_SUCCESS;
+        -: 1519:
+        -: 1520:}/* end CFE_SB_SendMsgFull */
+        -: 1521:
+        -: 1522:
+        -: 1523:
+        -: 1524:/******************************************************************************
+        -: 1525:** Name:    CFE_SB_RcvMsg
+        -: 1526:**
+        -: 1527:** Purpose: API used to receive a message from the software bus.
+        -: 1528:**
+        -: 1529:** Assumptions, External Events, and Notes:
+        -: 1530:**          Notes:
+        -: 1531:**
+        -: 1532:**
+        -: 1533:** Date Written:
+        -: 1534:**          04/25/2005
+        -: 1535:**
+        -: 1536:** Input Arguments:
+        -: 1537:**          PipeId
+        -: 1538:**          BufPtr
+        -: 1539:**          timeOut - CFE_SB_PEND, CFE_SB_POLL or millisecond timeout
+        -: 1540:**
+        -: 1541:** Output Arguments:
+        -: 1542:**          None
+        -: 1543:**
+        -: 1544:** Return Values:
+        -: 1545:**          Status
+        -: 1546:**
+        -: 1547:******************************************************************************/
+      205: 1548:int32  CFE_SB_RcvMsg(CFE_SB_MsgPtr_t    *BufPtr,
+        -: 1549:                     CFE_SB_PipeId_t    PipeId,
+        -: 1550:                     int32              TimeOut)
+        -: 1551:{
+        -: 1552:    int32                  Status;
+        -: 1553:    CFE_SB_BufferD_t       *Message;
+        -: 1554:    CFE_SB_PipeD_t         *PipeDscPtr;
+      205: 1555:    CFE_SB_DestinationD_t  *DestPtr = NULL;
+      205: 1556:    uint32                 TskId = 0;
+        -: 1557:    char                   FullName[(OS_MAX_API_NAME * 2)];
+        -: 1558:
+        -: 1559:    /* get task id for events */
+      205: 1560:    TskId = OS_TaskGetId();
+        -: 1561:
+        -: 1562:    /* Check input parameters */
+      205: 1563:    if((BufPtr == NULL)||(TimeOut < (-1))){
+        2: 1564:        CFE_SB_LockSharedData(__func__,__LINE__);
+        2: 1565:        CFE_SB.HKTlmMsg.Payload.MsgReceiveErrorCounter++;
+        2: 1566:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1567:        CFE_EVS_SendEventWithAppID(CFE_SB_RCV_BAD_ARG_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1568:            "Rcv Err:Bad Input Arg:BufPtr 0x%lx,pipe %d,t/o %d,app %s",
+        -: 1569:            (unsigned long)BufPtr,(int)PipeId,(int)TimeOut,CFE_SB_GetAppTskName(TskId,FullName));
+        2: 1570:        return CFE_SB_BAD_ARGUMENT;
+        -: 1571:    }/* end if */
+        -: 1572:
+      203: 1573:    PipeDscPtr = CFE_SB_GetPipePtr(PipeId);
+        -: 1574:    /* If the pipe does not exist or PipeId is out of range... */
+      203: 1575:    if (PipeDscPtr == NULL) {
+        1: 1576:        CFE_SB_LockSharedData(__func__,__LINE__);
+        1: 1577:        CFE_SB.HKTlmMsg.Payload.MsgReceiveErrorCounter++;
+        1: 1578:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1579:        CFE_EVS_SendEventWithAppID(CFE_SB_BAD_PIPEID_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1580:            "Rcv Err:PipeId %d does not exist,app %s",
+        -: 1581:            (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        1: 1582:        return CFE_SB_BAD_ARGUMENT;
+        -: 1583:    }/* end if */
+        -: 1584:
+        -: 1585:    /*
+        -: 1586:    ** Save off any currently in use buffer to free later; this allows
+        -: 1587:    ** one fewer shared data locks
+        -: 1588:    */
+        -: 1589:
+      202: 1590:    PipeDscPtr->ToTrashBuff = PipeDscPtr->CurrentBuff;
+      202: 1591:    PipeDscPtr->CurrentBuff = NULL;
+        -: 1592:
+        -: 1593:    /*
+        -: 1594:    ** Read a new buffer from the queue of the pipe, using the
+        -: 1595:    ** specified timeout option.  If a buffer was obtained, return the
+        -: 1596:    ** packet to the task according to mode.  Otherwise, return a status
+        -: 1597:    ** code indicating that no buffer was read.
+        -: 1598:    */
+      202: 1599:    Status = CFE_SB_ReadQueue(PipeDscPtr, TskId, TimeOut, &Message);
+        -: 1600:
+        -: 1601:    /* take semaphore again to protect the remaining code in this call */
+      202: 1602:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1603:
+        -: 1604:    /* free any pending trash buffer */
+      202: 1605:    if (PipeDscPtr->ToTrashBuff != NULL) {
+        -: 1606:
+        -: 1607:        /* Decrement the Buffer Use Count and Free buffer if cnt=0) */
+       14: 1608:        CFE_SB_DecrBufUseCnt(PipeDscPtr->ToTrashBuff);
+        -: 1609:
+       14: 1610:        PipeDscPtr->ToTrashBuff = NULL;
+        -: 1611:
+        -: 1612:    }/* end if */
+        -: 1613:
+      202: 1614:    if (Status == CFE_SUCCESS) {
+        -: 1615:
+        -: 1616:        /*
+        -: 1617:        ** Load the pipe tables 'CurrentBuff' with the buffer descriptor
+        -: 1618:        ** ptr corresponding to the message just read. This is done so that
+        -: 1619:        ** the buffer can be released on the next RcvMsg call for this pipe.
+        -: 1620:        */
+       15: 1621:        PipeDscPtr->CurrentBuff = Message;
+        -: 1622:
+        -: 1623:        /* Set the Receivers pointer to the address of the actual message */
+       15: 1624:        *BufPtr = (CFE_SB_MsgPtr_t) Message->Buffer;
+        -: 1625:
+        -: 1626:        /* get pointer to destination to be used in decrementing msg limit cnt*/
+       15: 1627:        DestPtr = CFE_SB_GetDestPtr(CFE_SB_ConvertMsgIdtoMsgKey(PipeDscPtr->CurrentBuff->MsgId), PipeDscPtr->PipeId);
+        -: 1628:
+        -: 1629:        /*
+        -: 1630:        ** DestPtr would be NULL if the msg is unsubscribed to while it is on
+        -: 1631:        ** the pipe. The BuffCount may be zero if the msg is unsubscribed to and
+        -: 1632:        ** then resubscribed to while it is on the pipe. Both of these cases are
+        -: 1633:        ** considered nominal and are handled by the code below.
+        -: 1634:        */
+       15: 1635:        if(DestPtr != NULL){
+        -: 1636:
+        7: 1637:            if (DestPtr->BuffCount > 0){
+        6: 1638:                DestPtr->BuffCount--;
+        -: 1639:            }
+        -: 1640:
+        -: 1641:        }/* end if DestPtr != NULL */
+        -: 1642:
+       15: 1643:        if (PipeDscPtr->PipeId < CFE_SB_TLM_PIPEDEPTHSTATS_SIZE)
+        -: 1644:        {
+       15: 1645:        CFE_SB.StatTlmMsg.Payload.PipeDepthStats[PipeDscPtr->PipeId].InUse--;
+        -: 1646:        }
+        -: 1647:
+        -: 1648:    }else{
+        -: 1649:
+        -: 1650:        /* Set the users pointer to NULL indicating the CFE_SB_ReadQueue failed */
+      187: 1651:        *BufPtr = NULL;
+        -: 1652:
+        -: 1653:    }/* end if */
+        -: 1654:
+        -: 1655:    /* release the semaphore */
+      202: 1656:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1657:
+        -: 1658:    /*
+        -: 1659:    ** If status is not CFE_SUCCESS, then no packet was received.  If this was
+        -: 1660:    ** caused by an unexpected error, then CFE_SB_ReadQueue() will report the
+        -: 1661:    ** error.
+        -: 1662:    */
+      202: 1663:    return Status;
+        -: 1664:
+        -: 1665:}/* end CFE_SB_RcvMsg */
+        -: 1666:
+        -: 1667:
+        -: 1668:/******************************************************************************
+        -: 1669:** Name:    CFE_SB_GetLastSenderId
+        -: 1670:**
+        -: 1671:** Purpose: API used for receiving sender Information of the last message received on
+        -: 1672:**          the given pipe.
+        -: 1673:**
+        -: 1674:** Assumptions, External Events, and Notes:
+        -: 1675:**          None
+        -: 1676:**
+        -: 1677:** Date Written:
+        -: 1678:**          06/13/2007
+        -: 1679:**
+        -: 1680:** Input Arguments:
+        -: 1681:**          Ptr -     caller declares a ptr of type CFE_SB_SenderId_t then gives the
+        -: 1682:**                    address of that pointer.
+        -: 1683:**          PipeId -  the Pipe Id that the message was received on.
+        -: 1684:**
+        -: 1685:** Output Arguments:
+        -: 1686:**          None
+        -: 1687:**
+        -: 1688:** Return Values:
+        -: 1689:**          Status
+        -: 1690:**
+        -: 1691:******************************************************************************/
+        4: 1692:uint32  CFE_SB_GetLastSenderId(CFE_SB_SenderId_t **Ptr,CFE_SB_PipeId_t  PipeId)
+        -: 1693:{
+        -: 1694:
+        -: 1695:    CFE_SB_BufferD_t *Ptr2BufDescriptor;
+        4: 1696:    uint32            TskId = 0;
+        4: 1697:    uint32            AppId = 0xFFFFFFFF;
+        -: 1698:    char              FullName[(OS_MAX_API_NAME * 2)];
+        -: 1699:
+        4: 1700:    TskId = OS_TaskGetId();
+        -: 1701:
+        -: 1702:    /* validate ptr  - note: must validate ptr before pipe id validation  */
+        -: 1703:    /* because an invalid pipe id sets the callers pointer to NULL */
+        4: 1704:    if(Ptr == NULL){
+        1: 1705:      CFE_EVS_SendEventWithAppID(CFE_SB_LSTSNDER_ERR1_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1706:          "SB GetLastSender Err:Rcvd Null Ptr,Pipe=%d,App=%s",
+        -: 1707:          (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        1: 1708:      return CFE_SB_BAD_ARGUMENT;
+        -: 1709:    }/* end if */
+        -: 1710:
+        -: 1711:    /* validate pipe id */
+        3: 1712:    if(CFE_SB_ValidatePipeId(PipeId)!=CFE_SUCCESS){
+        1: 1713:      *Ptr = NULL;
+        1: 1714:      CFE_EVS_SendEventWithAppID(CFE_SB_LSTSNDER_ERR2_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1715:          "SB GetLastSender Err:Rcvd Invalid Pipe=%d,App=%s",
+        -: 1716:          (int)PipeId,CFE_SB_GetAppTskName(TskId,FullName));
+        1: 1717:      return CFE_SB_BAD_ARGUMENT;
+        -: 1718:    }/* end if */
+        -: 1719:
+        2: 1720:    CFE_ES_GetAppID(&AppId);
+        -: 1721:
+        2: 1722:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1723:
+        -: 1724:    /* verify requestor is owner of pipe */
+        2: 1725:    if(CFE_SB.PipeTbl[PipeId].AppId != AppId){
+        1: 1726:      *Ptr = NULL;
+        1: 1727:      CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1728:      CFE_EVS_SendEventWithAppID(CFE_SB_GLS_INV_CALLER_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 1729:          "SB GetLastSender Err:Caller(%s) is not the owner of pipe %d",
+        -: 1730:          CFE_SB_GetAppTskName(TskId,FullName),(int)PipeId);
+        1: 1731:      return CFE_SB_BAD_ARGUMENT;
+        -: 1732:    }/* end if */
+        -: 1733:
+        -: 1734:    /* Get ptr to buffer descriptor for the last msg received on the given pipe */
+        1: 1735:    Ptr2BufDescriptor = CFE_SB.PipeTbl[PipeId].CurrentBuff;
+        -: 1736:
+        -: 1737:    /* Set the receivers pointer to the adr of 'Sender' struct in buf descriptor */
+        1: 1738:    *Ptr = (CFE_SB_SenderId_t *) &Ptr2BufDescriptor -> Sender;
+        -: 1739:
+        1: 1740:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1741:
+        1: 1742:    return CFE_SUCCESS;
+        -: 1743:
+        -: 1744:}/* end CFE_SB_GetLastSenderId */
+        -: 1745:
+        -: 1746:
+        -: 1747:/******************************************************************************
+        -: 1748:** Name:    CFE_SB_ZeroCopyGetPtr
+        -: 1749:**
+        -: 1750:** Purpose: API used for for getting a pointer to a buffer (for zero copy mode
+        -: 1751:**          only)
+        -: 1752:**
+        -: 1753:** Assumptions, External Events, and Notes:
+        -: 1754:**          None
+        -: 1755:**
+        -: 1756:** Date Written:
+        -: 1757:**          04/25/2005
+        -: 1758:**
+        -: 1759:** Input Arguments:
+        -: 1760:**          MsgSize
+        -: 1761:**
+        -: 1762:** Output Arguments:
+        -: 1763:**          BufferHandle
+        -: 1764:**
+        -: 1765:** Return Values:
+        -: 1766:**          Pointer to an empty buffer in SB Memory space, or NULL if the buffer
+        -: 1767:**          could not be allocated.
+        -: 1768:**
+        -: 1769:******************************************************************************/
+        -: 1770:
+       14: 1771:CFE_SB_Msg_t  *CFE_SB_ZeroCopyGetPtr(uint16 MsgSize,
+        -: 1772:                                     CFE_SB_ZeroCopyHandle_t *BufferHandle)
+        -: 1773:{
+        -: 1774:   int32                stat1;
+       14: 1775:   uint32               AppId = 0xFFFFFFFF;
+       14: 1776:   uint8               *address = NULL;
+       14: 1777:   CFE_SB_ZeroCopyD_t  *zcd = NULL;
+       14: 1778:   CFE_SB_BufferD_t    *bd = NULL;
+        -: 1779:
+       14: 1780:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1781:
+        -: 1782:    /* Allocate a new zero copy descriptor from the SB memory pool.*/
+       14: 1783:    stat1 = CFE_ES_GetPoolBuf((uint32 **)&zcd, CFE_SB.Mem.PoolHdl,  sizeof(CFE_SB_ZeroCopyD_t));
+       14: 1784:    if(stat1 < 0){
+        1: 1785:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        1: 1786:        return NULL;
+        -: 1787:    }
+        -: 1788:
+        -: 1789:    /* Add the size of a zero copy descriptor to the memory-in-use ctr and */
+        -: 1790:    /* adjust the high water mark if needed */
+       13: 1791:    CFE_SB.StatTlmMsg.Payload.MemInUse+=stat1;
+       13: 1792:    if(CFE_SB.StatTlmMsg.Payload.MemInUse > CFE_SB.StatTlmMsg.Payload.PeakMemInUse){
+       12: 1793:       CFE_SB.StatTlmMsg.Payload.PeakMemInUse = CFE_SB.StatTlmMsg.Payload.MemInUse;
+        -: 1794:    }/* end if */
+        -: 1795:
+        -: 1796:    /* Allocate a new buffer (from the SB memory pool) to hold the message  */
+       13: 1797:    stat1 = CFE_ES_GetPoolBuf((uint32 **)&bd, CFE_SB.Mem.PoolHdl, MsgSize + sizeof(CFE_SB_BufferD_t));
+       13: 1798:    if((stat1 < 0)||(bd==NULL)){
+        -: 1799:        /*deallocate the first buffer if the second buffer creation fails*/
+        2: 1800:        stat1 = CFE_ES_PutPoolBuf(CFE_SB.Mem.PoolHdl, (uint32 *)zcd);
+        2: 1801:        if(stat1 > 0){
+        1: 1802:            CFE_SB.StatTlmMsg.Payload.MemInUse-=stat1;
+        -: 1803:        }
+        2: 1804:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        2: 1805:        return NULL;
+        -: 1806:    }
+        -: 1807:
+        -: 1808:    /* Increment the number of buffers in use by one even though two buffers */
+        -: 1809:    /* were allocated. SBBuffersInUse increments on a per-message basis */
+       11: 1810:    CFE_SB.StatTlmMsg.Payload.SBBuffersInUse++;
+       11: 1811:    if(CFE_SB.StatTlmMsg.Payload.SBBuffersInUse > CFE_SB.StatTlmMsg.Payload.PeakSBBuffersInUse){
+       10: 1812:        CFE_SB.StatTlmMsg.Payload.PeakSBBuffersInUse = CFE_SB.StatTlmMsg.Payload.SBBuffersInUse;
+        -: 1813:    }/* end if */
+        -: 1814:
+        -: 1815:    /* Add the size of the actual buffer to the memory-in-use ctr and */
+        -: 1816:    /* adjust the high water mark if needed */
+       11: 1817:    CFE_SB.StatTlmMsg.Payload.MemInUse+=stat1;
+       11: 1818:    if(CFE_SB.StatTlmMsg.Payload.MemInUse > CFE_SB.StatTlmMsg.Payload.PeakMemInUse){
+       10: 1819:       CFE_SB.StatTlmMsg.Payload.PeakMemInUse = CFE_SB.StatTlmMsg.Payload.MemInUse;
+        -: 1820:    }/* end if */
+        -: 1821:
+        -: 1822:    /* first set ptr to actual msg buffer the same as ptr to descriptor */
+       11: 1823:    address = (uint8 *)bd;
+        -: 1824:
+        -: 1825:    /* increment actual msg buffer ptr beyond the descriptor */
+       11: 1826:    address += sizeof(CFE_SB_BufferD_t);
+        -: 1827:
+        -: 1828:    /* Initialize the zero copy descriptor structure. */
+       11: 1829:    zcd->Size      = MsgSize;
+       11: 1830:    zcd->Buffer    = (void *)address;
+       11: 1831:    zcd->Next      = NULL;
+        -: 1832:
+        -: 1833:    /* Add this Zero Copy Descriptor to the end of the chain */
+       11: 1834:    if(CFE_SB.ZeroCopyTail != NULL){
+        3: 1835:        ((CFE_SB_ZeroCopyD_t *) CFE_SB.ZeroCopyTail)->Next = (void *)zcd;
+        -: 1836:    }
+       11: 1837:    zcd->Prev = CFE_SB.ZeroCopyTail;
+       11: 1838:    CFE_SB.ZeroCopyTail = (void *)zcd;
+        -: 1839:
+       11: 1840:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1841:
+        -: 1842:    /* get callers AppId */
+       11: 1843:    CFE_ES_GetAppID(&AppId);
+       11: 1844:    zcd->AppID     = AppId;
+        -: 1845:
+       11: 1846:    (*BufferHandle) = (CFE_SB_ZeroCopyHandle_t) zcd;
+        -: 1847:
+        -: 1848:    /* Initialize the buffer descriptor structure. */
+       11: 1849:    bd->UseCount  = 1;
+       11: 1850:    bd->Size      = MsgSize;
+       11: 1851:    bd->Buffer    = (void *)address;
+        -: 1852:
+       11: 1853:    return (CFE_SB_Msg_t *)address;
+        -: 1854:
+        -: 1855:}/* CFE_SB_ZeroCopyGetPtr */
+        -: 1856:
+        -: 1857:
+        -: 1858:/******************************************************************************
+        -: 1859:** Name:    CFE_SB_ZeroCopyReleasePtr
+        -: 1860:**
+        -: 1861:** Purpose: API used for releasing a pointer to a buffer (for zero copy mode
+        -: 1862:**          only) This function is typically not needed for zero copy transfers.
+        -: 1863:**          This function is needed only when a ptr is received via
+        -: 1864:**          CFE_SB_ZeroCopyGetPtr, but never used in a send.
+        -: 1865:**
+        -: 1866:** Assumptions, External Events, and Notes:
+        -: 1867:**          None
+        -: 1868:**
+        -: 1869:** Date Written:
+        -: 1870:**          04/25/2005
+        -: 1871:**
+        -: 1872:** Input Arguments:
+        -: 1873:**          Ptr2Release
+        -: 1874:**          BufferHandle
+        -: 1875:**
+        -: 1876:** Output Arguments:
+        -: 1877:**          None
+        -: 1878:**
+        -: 1879:** Return Values:
+        -: 1880:**          Status
+        -: 1881:**
+        -: 1882:******************************************************************************/
+       10: 1883:int32 CFE_SB_ZeroCopyReleasePtr(CFE_SB_Msg_t  *Ptr2Release,
+        -: 1884:                                CFE_SB_ZeroCopyHandle_t BufferHandle)
+        -: 1885:{
+        -: 1886:    int32    Status;
+        -: 1887:    int32    Stat2;
+        -: 1888:
+       10: 1889:    Status = CFE_SB_ZeroCopyReleaseDesc(Ptr2Release, BufferHandle);
+        -: 1890:
+       10: 1891:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1892:
+       10: 1893:    if(Status == CFE_SUCCESS){
+        -: 1894:        /* give the buffer back to the buffer pool */
+        7: 1895:        Stat2 = CFE_ES_PutPoolBuf(CFE_SB.Mem.PoolHdl,
+        -: 1896:                                  (uint32 *) (((uint8 *)Ptr2Release) - sizeof(CFE_SB_BufferD_t)));
+        7: 1897:        if(Stat2 > 0){
+        -: 1898:             /* Substract the size of the actual buffer from the Memory in use ctr */
+        6: 1899:            CFE_SB.StatTlmMsg.Payload.MemInUse-=Stat2;
+        6: 1900:            CFE_SB.StatTlmMsg.Payload.SBBuffersInUse--;
+        -: 1901:        }/* end if */
+        -: 1902:    }
+        -: 1903:
+       10: 1904:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1905:
+       10: 1906:    return Status;
+        -: 1907:
+        -: 1908:}/* end CFE_SB_ZeroCopyReleasePtr */
+        -: 1909:
+        -: 1910:
+        -: 1911:/******************************************************************************
+        -: 1912:** Name:    CFE_SB_ZeroCopyReleaseDesc
+        -: 1913:**
+        -: 1914:** Purpose: API used for releasing a zero copy descriptor (for zero copy mode
+        -: 1915:**          only).
+        -: 1916:**
+        -: 1917:** Assumptions, External Events, and Notes:
+        -: 1918:**          None
+        -: 1919:**
+        -: 1920:** Date Written:
+        -: 1921:**          04/25/2005
+        -: 1922:**
+        -: 1923:** Input Arguments:
+        -: 1924:**          Ptr2Release
+        -: 1925:**          BufferHandle
+        -: 1926:**
+        -: 1927:** Output Arguments:
+        -: 1928:**          None
+        -: 1929:**
+        -: 1930:** Return Values:
+        -: 1931:**          Status
+        -: 1932:**
+        -: 1933:******************************************************************************/
+       14: 1934:int32 CFE_SB_ZeroCopyReleaseDesc(CFE_SB_Msg_t  *Ptr2Release,
+        -: 1935:                                 CFE_SB_ZeroCopyHandle_t  BufferHandle)
+        -: 1936:{
+        -: 1937:    int32    Stat;
+       14: 1938:    CFE_SB_ZeroCopyD_t *zcd = (CFE_SB_ZeroCopyD_t *) BufferHandle;
+        -: 1939:
+       14: 1940:    CFE_SB_LockSharedData(__func__,__LINE__);
+        -: 1941:
+       14: 1942:    Stat = CFE_ES_GetPoolBufInfo(CFE_SB.Mem.PoolHdl, (uint32 *)zcd);
+        -: 1943:
+       14: 1944:    if((Ptr2Release == NULL) || (Stat < 0) || (zcd->Buffer != (void *)Ptr2Release)){
+        5: 1945:        CFE_SB_UnlockSharedData(__func__,__LINE__);
+        5: 1946:        return CFE_SB_BUFFER_INVALID;
+        -: 1947:    }
+        -: 1948:
+        -: 1949:    /* delink the descriptor */
+        9: 1950:    if(zcd->Prev != NULL){
+        5: 1951:        ((CFE_SB_ZeroCopyD_t *) (zcd->Prev))->Next = zcd->Next;
+        -: 1952:    }
+        9: 1953:    if(zcd->Next != NULL){
+        3: 1954:        ((CFE_SB_ZeroCopyD_t *) (zcd->Next))->Prev = zcd->Prev;
+        -: 1955:    }
+        9: 1956:    if(CFE_SB.ZeroCopyTail == (void *)zcd){
+        6: 1957:        CFE_SB.ZeroCopyTail = zcd->Prev;
+        -: 1958:    }
+        -: 1959:
+        -: 1960:    /* give the descriptor back to the buffer pool */
+        9: 1961:    Stat = CFE_ES_PutPoolBuf(CFE_SB.Mem.PoolHdl, (uint32 *)zcd);
+        9: 1962:    if(Stat > 0){
+        -: 1963:        /* Substract the size of the actual buffer from the Memory in use ctr */
+        8: 1964:        CFE_SB.StatTlmMsg.Payload.MemInUse-=Stat;
+        -: 1965:    }/* end if */
+        -: 1966:
+        9: 1967:    CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 1968:
+        9: 1969:    return CFE_SUCCESS;
+        -: 1970:
+        -: 1971:}/* end CFE_SB_ZeroCopyReleaseDesc */
+        -: 1972:
+        -: 1973:
+        -: 1974:/******************************************************************************
+        -: 1975:** Name:    CFE_SB_ZeroCopySend
+        -: 1976:**
+        -: 1977:** Purpose: API for sending messages in zero copy mode (with telemetry source
+        -: 1978:**          sequence count incrementing)
+        -: 1979:**
+        -: 1980:** Assumptions, External Events, and Notes:
+        -: 1981:**          None
+        -: 1982:**
+        -: 1983:** Date Written:
+        -: 1984:**          04/25/2005
+        -: 1985:**
+        -: 1986:** Input Arguments:
+        -: 1987:**          MsgPtr - Pointer to message to be sent
+        -: 1988:**          BufferHandle - Handle supplied by the get pointer call
+        -: 1989:**
+        -: 1990:** Output Arguments:
+        -: 1991:**          None
+        -: 1992:**
+        -: 1993:** Return Values:
+        -: 1994:**          Status
+        -: 1995:**
+        -: 1996:******************************************************************************/
+        2: 1997:int32 CFE_SB_ZeroCopySend(CFE_SB_Msg_t   *MsgPtr,
+        -: 1998:                          CFE_SB_ZeroCopyHandle_t BufferHandle)
+        -: 1999:{
+        2: 2000:    int32   Status = 0;
+        -: 2001:
+        2: 2002:    Status = CFE_SB_ZeroCopyReleaseDesc(MsgPtr, BufferHandle);
+        -: 2003:
+        2: 2004:    if(Status == CFE_SUCCESS){
+        1: 2005:        Status = CFE_SB_SendMsgFull(MsgPtr,CFE_SB_INCREMENT_TLM,CFE_SB_SEND_ZEROCOPY);
+        -: 2006:    }
+        -: 2007:
+        2: 2008:    return Status;
+        -: 2009:
+        -: 2010:}/* end CFE_SB_ZeroCopySend */
+        -: 2011:
+        -: 2012:
+        -: 2013:/******************************************************************************
+        -: 2014:** Name:    CFE_SB_ZeroCopyPass
+        -: 2015:**
+        -: 2016:** Purpose: API for sending messages in zero copy mode (telemetry source
+        -: 2017:**          sequence count is preserved)
+        -: 2018:**
+        -: 2019:** Assumptions, External Events, and Notes:
+        -: 2020:**          None
+        -: 2021:**
+        -: 2022:** Date Written:
+        -: 2023:**          04/25/2005
+        -: 2024:**
+        -: 2025:** Input Arguments:
+        -: 2026:**          MsgPtr - Pointer to message to be sent
+        -: 2027:**          BufferHandle - Handle supplied by the get pointer call
+        -: 2028:**
+        -: 2029:** Output Arguments:
+        -: 2030:**          None
+        -: 2031:**
+        -: 2032:** Return Values:
+        -: 2033:**          Status
+        -: 2034:**
+        -: 2035:******************************************************************************/
+        2: 2036:int32 CFE_SB_ZeroCopyPass(CFE_SB_Msg_t   *MsgPtr,
+        -: 2037:                          CFE_SB_ZeroCopyHandle_t BufferHandle)
+        -: 2038:{
+        2: 2039:    int32   Status = 0;
+        -: 2040:
+        2: 2041:    Status = CFE_SB_ZeroCopyReleaseDesc(MsgPtr, BufferHandle);
+        -: 2042:
+        2: 2043:    if(Status == CFE_SUCCESS){
+        1: 2044:        Status = CFE_SB_SendMsgFull(MsgPtr,CFE_SB_DO_NOT_INCREMENT,CFE_SB_SEND_ZEROCOPY);
+        -: 2045:    }
+        -: 2046:
+        2: 2047:    return Status;
+        -: 2048:
+        -: 2049:}/* end CFE_SB_ZeroCopyPass */
+        -: 2050:
+        -: 2051:
+        -: 2052:/******************************************************************************
+        -: 2053:**  Function:  CFE_SB_ReadQueue()
+        -: 2054:**
+        -: 2055:**  Purpose:
+        -: 2056:**    Read an SB message from the system queue.  The message is represented
+        -: 2057:**    by a pointer to the buffer descriptor of the message.  Several options
+        -: 2058:**    are available for the timeout, as described below.
+        -: 2059:**
+        -: 2060:**  Arguments:
+        -: 2061:**    PipeDscPtr: Pointer to pipe descriptor.
+        -: 2062:**    AppId     : Application ID of the receiving task (used for error messages).
+        -: 2063:**    Time_Out  : Timeout option; one of the following:
+        -: 2064:**                  CFE_SB_PEND_FOREVER  = wait forever until a packet arrives
+        -: 2065:**                  CFE_SB_POLL = check the pipe for packets but don't wait
+        -: 2066:**                  value in milliseconds = wait up to a specified time
+        -: 2067:**    Message   : Pointer to a variable that will receive the buffer
+        -: 2068:**                descriptor of the message.
+        -: 2069:**
+        -: 2070:**  Return:
+        -: 2071:**    CFE_SB status code indicating the result of the operation:
+        -: 2072:**      CFE_SUCCESS         = message was successfully read
+        -: 2073:**      CFE_SB_NO_MESSAGE   = no message is present (for CFE_SB_POLL option)
+        -: 2074:**      CFE_SB_TIME_OUT     = timeout expired (for timeout option)
+        -: 2075:**      CFE_SB_PIPE_RD_ERR  = an unexpected queue read error occurred
+        -: 2076:*/
+        -: 2077:
+      202: 2078:int32  CFE_SB_ReadQueue (CFE_SB_PipeD_t         *PipeDscPtr,
+        -: 2079:                         uint32                 TskId,
+        -: 2080:                         CFE_SB_TimeOut_t       Time_Out,
+        -: 2081:                         CFE_SB_BufferD_t       **Message)
+        -: 2082:{
+        -: 2083:    int32              Status,TimeOut;
+        -: 2084:    uint32             Nbytes;
+        -: 2085:    char               FullName[(OS_MAX_API_NAME * 2)];
+        -: 2086:
+        -: 2087:    /* translate the given Time_Out value */
+      202: 2088:    switch(Time_Out){
+        -: 2089:
+        -: 2090:      case CFE_SB_PEND_FOREVER:
+        9: 2091:          TimeOut = OS_PEND;
+        9: 2092:          break;
+        -: 2093:
+        -: 2094:      case CFE_SB_POLL:
+      192: 2095:          TimeOut = OS_CHECK;
+      192: 2096:          break;
+        -: 2097:
+        -: 2098:      default:
+        1: 2099:          TimeOut = Time_Out;
+        -: 2100:          break;
+        -: 2101:
+        -: 2102:    }/* end switch */
+        -: 2103:
+        -: 2104:    /* Read the buffer descriptor address from the queue.  */
+      202: 2105:    Status = OS_QueueGet(PipeDscPtr->SysQueueId,
+        -: 2106:                        (void *)Message,
+        -: 2107:                        sizeof(CFE_SB_BufferD_t *),
+        -: 2108:                        &Nbytes,
+        -: 2109:                        TimeOut);
+        -: 2110:
+        -: 2111:    /* translate the return value */
+      202: 2112:    switch(Status){
+        -: 2113:
+        -: 2114:      case OS_SUCCESS:
+       15: 2115:          Status = CFE_SUCCESS;
+       15: 2116:          break;
+        -: 2117:
+        -: 2118:      case OS_QUEUE_EMPTY:
+      184: 2119:          Status = CFE_SB_NO_MESSAGE;
+      184: 2120:          break;
+        -: 2121:
+        -: 2122:      case OS_QUEUE_TIMEOUT:
+        1: 2123:          Status = CFE_SB_TIME_OUT;
+        1: 2124:          break;
+        -: 2125:
+        -: 2126:      default:
+        2: 2127:          CFE_SB_LockSharedData(__func__,__LINE__);
+        2: 2128:          CFE_SB.HKTlmMsg.Payload.InternalErrorCounter++;
+        2: 2129:          CFE_SB_UnlockSharedData(__func__,__LINE__);
+        -: 2130:          /* Unexpected error while reading the queue. */
+        4: 2131:          CFE_EVS_SendEventWithAppID(CFE_SB_Q_RD_ERR_EID,CFE_EVS_EventType_ERROR,CFE_SB.AppId,
+        -: 2132:              "Pipe Read Err,pipe %s,app %s,stat 0x%x",
+        2: 2133:              CFE_SB_GetPipeName(PipeDscPtr->PipeId),CFE_SB_GetAppTskName(TskId,FullName),(unsigned int)Status);
+        -: 2134:
+        2: 2135:          Status = CFE_SB_PIPE_RD_ERR;
+        -: 2136:          break;
+        -: 2137:
+        -: 2138:    }/* end switch */
+        -: 2139:
+      202: 2140:    return (Status);
+        -: 2141:}/* end CFE_SB_ReadQueue */
+        -: 2142:
+        -: 2143:/*****************************************************************************/
+        -: 2144:

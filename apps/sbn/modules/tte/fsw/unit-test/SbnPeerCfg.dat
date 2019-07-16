@@ -1,0 +1,28 @@
+Port1, 1, 8, 0x42, 0, 0, 0x0800, 0x0804, 0x0F01
+Port2, 2, 8, 0x42, 0, 0, 0x0801, 0x0F01
+Host, 3, 8, 0x42, 0, 0
+Port4, 1, 8, 0x42, 0, 0, 0x0810, 0x0820, 0x0830
+!
+! The '!' is inserted after the last valid peer line,
+! it is not a comment character.
+!
+! The file may contain up to SBN_MAX_NETWORK_PEERS as defined in sbn_app.h
+!
+! Column 1: CPU Name (Port Name for TTE)
+!
+! Column 2: CPU ID (Port ID for TTE)
+!
+! Column 3: Protocol ID (1 = UDP, 2 = TCP, 3 = SpacewireRMAP,
+!           4 = Spacewire packet, 5 = Shared Memory, 6 = Serial, 8 = TTE. 
+            Only UDP, TCP and TTE are currently implemented.)
+!
+! Column 4: Spacecraft ID (must match return value of CFE_PSP_GetSpacecraftID())
+!
+! Column 5: QoS (need to describe)
+!
+! Column 6: Network Number (for grouping affiliated peers, to determine
+!           which host interface is needed for which peer.)
+! 
+! Columns 7+: Protocol ID-dependent.
+!             UDP/TCP: 7 = hostname/ip, 8 = port
+!             TTE: 7-N = msgids to send via this port in hex

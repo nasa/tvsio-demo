@@ -1,0 +1,11 @@
+{
+    "cfsStructureType":"SET_HAL_MBSU1_Output_Curr_Limit_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"hal_amps_cfs.mbsu1.mbsu_output_curr_limit.output_curr_limit_sp", "trickType":"double", "cfsVar":"Output_Curr_Limit_SP", "cfsType":"double"},
+        {"trickVar":"hal_amps_cfs.mbsu1.mbsu_output_curr_limit.output_bus", "trickType":"uint", "cfsVar":"OUTPUT_BUS", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE49",
+    "commandCode":3,
+    "flowDirection":2
+}

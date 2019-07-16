@@ -1,0 +1,24 @@
+{
+    "cfsStructureType":"MPCV_NAV_STATE_TLM",
+    "cfsStructureFileName":"MPCV_types.h",
+    "members": [
+        {"trickVar":"mpcv_gnc.nav.time_tdb", "trickType":"double", "cfsVar":"TIME_TDB_SECONDS", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_inrtl2body_RPY[0]", "trickType":"double", "cfsVar":"INRTL_ATT_ROLL", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_inrtl2body_RPY[1]", "trickType":"double", "cfsVar":"INRTL_ATT_PITCH", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_inrtl2body_RPY[2]", "trickType":"double", "cfsVar":"INRTL_ATT_YAW", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_inrtl2cg_inrtl[0]", "trickType":"double", "cfsVar":"INRTL_POS_X", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_inrtl2cg_inrtl[1]", "trickType":"double", "cfsVar":"INRTL_POS_Y", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_inrtl2cg_inrtl[2]", "trickType":"double", "cfsVar":"INRTL_POS_Z", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_tgtdp2vehdp_RPY[0]", "trickType":"double", "cfsVar":"TGT_TO_VEH_ATT_ROLL", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_tgtdp2vehdp_RPY[1]", "trickType":"double", "cfsVar":"TGT_TO_VEH_ATT_PITCH", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.rot.E_tgtdp2vehdp_RPY[2]", "trickType":"double", "cfsVar":"TGT_TO_VEH_ATT_YAW", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_tgtdp2vehdp_tgtdp[0]", "trickType":"double", "cfsVar":"TGT_TO_VEH_POS_X", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_tgtdp2vehdp_tgtdp[1]", "trickType":"double", "cfsVar":"TGT_TO_VEH_POS_Y", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.trans.r_tgtdp2vehdp_tgtdp[2]", "trickType":"double", "cfsVar":"TGT_TO_VEH_POS_Z", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.mass.r_struct2cg_struct[0]", "trickType":"double", "cfsVar":"CG_POS_X", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.mass.r_struct2cg_struct[1]", "trickType":"double", "cfsVar":"CG_POS_Y", "cfsType":"double"},
+        {"trickVar":"mpcv_gnc.nav.out.mass.r_struct2cg_struct[2]", "trickType":"double", "cfsVar":"CG_POS_Z", "cfsType":"double"}
+    ],
+    "messageId":"0x7E8D",
+    "flowDirection":1
+}

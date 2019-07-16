@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2017, United States government as represented by the 
+    administrator of the National Aeronautics Space Administration.  
+    All rights reserved.  This document was created at NASA Glenn 
+    Research Center pursuant to government contracts.
+
+    This is governed by the NASA Open Source Agreement and may be used,
+    distributed and modified only pursuant to the terms of that agreement.
+      
+    Purpose: 
+      Assign values to basic configuration parameters of the Core Flight
+      System (cFS).  The CFS EDS toolchain uses values defined here to
+      as substitutions for the ${} syntax in EDS files. 
+      
+-->
+<DesignParameters>
+
+  <Namespace name="CFE_EVS" shortDescription="Event Services Configuration">
+     <!-- The bitmasks do not yet have a way to directly associate with the data structure yet -->
+     <Define name="DEBUG_BIT" value="0x0001" />
+     <Define name="INFORMATION_BIT" value="0x0002" />
+     <Define name="ERROR_BIT" value="0x0004" />
+     <Define name="CRITICAL_BIT" value="0x0008" />
+     
+     <Define name="PORT1_BIT" value="0x0001" />
+     <Define name="PORT2_BIT" value="0x0002" />
+     <Define name="PORT3_BIT" value="0x0004" />
+     <Define name="PORT4_BIT" value="0x0008" />
+  </Namespace>
+    
+  <Namespace name="CFE_FS" shortDescription="File Services Configuration">
+     <Define name="FILE_CONTENT_ID" value="0x63464531" shortDescription="Magic Number for cFE compliant files (= cFE1)" />
+  </Namespace>
+      
+  <Namespace name="CFE_SB" shortDescription="Software Bus Configuration">
+     <Define name="SUB_ENTRIES_PER_PKT" value="20" />
+     <Define name="MSGID_BIT_SIZE" value="32" />
+  </Namespace>
+
+  <Namespace name="CCSDS_SPACEPACKET" shortDescription="CCSDS Configuration">
+     <!-- Select CCSDS v1 headers only (no APID qualifiers) -->
+     <!-- <Define name="HEADER_TYPE" value="PriHdr" /> -->
+     <!-- Select CCSDS v2 headers (with APID qualifiers) -->
+     <Define name="HEADER_TYPE" value="APIDQHdr" />
+  </Namespace>
+
+</DesignParameters>

@@ -1,0 +1,31 @@
+\section*{Concept }
+
+In order to keep the S\-B\-N application as flexible as possible, the S\-B\-N application acts as a manager of a number of interfaces, but does not implement anything interface-\/specific. Instead, each interface type uses a custom module (shared library) containing, at minimum, a set of core functions that the S\-B\-N application uses in order to interact with that specific interface type.
+
+This design has a couple of key advantages\-: 
+\begin{DoxyItemize}
+\item The S\-B\-N application does not need to be updated to accommodate additional interface types.  
+\item Interface modules may differ based on the O\-S, allowing the modules to take advantages of services offered by a specific O\-S.  
+\end{DoxyItemize}
+
+\section*{Interface Module Requirements }
+
+In order for an interface module to be compatible with the S\-B\-N application, it must declare a global \#\-S\-B\-N\-\_\-\-Interface\-Operations structure containing function pointers to interface-\/specific versions of the S\-B\-N core functions. These function pointers will be used by the S\-B\-N application to interact with the interface.
+
+A module can implement additional functions as needed, but S\-B\-N will only use those that are present in the required structure.
+
+\section*{Operation }
+
+As described in the operations section of this document, the S\-B\-N application must be configured with a file of modules to support. The Sbn\-Module\-Data.\-dat file must include the protocol I\-D, the protocol name, the path to the protocol shared library, and the name of the global \#\-S\-B\-N\-\_\-\-Interface\-Operations structure.
+
+The S\-B\-N application parses this file and creates a list of the interface types that will be used. The S\-B\-N then iterates through the list and loads the shared library specified in the Sbn\-Module\-Data.\-dat file. After the module is loaded, the application searches through the object symbols to find the specified structure of function pointers and stores the address of the structure in the list of interface types. During execution, in each core function, the S\-B\-N will use the protocol I\-D to choose the correct operations structure and will use the function pointers within the structure to call the interface-\/specific function.
+
+\section*{Existing Modules }
+
+
+\begin{DoxyItemize}
+\item udp 
+\item tcp 
+\end{DoxyItemize}
+
+Prev\-: \hyperlink{cfssbncons}{C\-F\-S Software Bus Network Constraints} 

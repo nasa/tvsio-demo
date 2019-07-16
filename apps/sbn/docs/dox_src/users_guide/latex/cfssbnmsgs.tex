@@ -1,0 +1,25 @@
+S\-B\-N uses 7 unique network messages\-: 
+\begin{DoxyItemize}
+\item Announce -\/ Sent on initialization to all peers 
+\item Heartbeat -\/ Sent to peer when no traffic sent to peer in S\-B\-N\-\_\-\-H\-E\-A\-R\-T\-B\-E\-A\-T\-\_\-\-S\-E\-N\-D\-T\-I\-M\-E seconds. 
+\item Subscribe -\/ Sent to all peers when a task subscribes to a message (via C\-F\-E\-\_\-\-S\-B\-\_\-\-Subscribe) 
+\item Unsubscribe -\/ Send to all peers when a task unsubscribes to a message (via C\-F\-E\-\_\-\-S\-B\-\_\-\-Unsubscribe) 
+\item App Message -\/ Sent to all subscribing peers with a message is read from a pipe 
+\end{DoxyItemize}
+
+S\-B\-N modules append a custom header to each network message so that the message type and the sender are easily identified by the receiving S\-B\-N.
+
+\begin{TabularC}{4}
+\hline
+&\multicolumn{2}{p{(\linewidth-\tabcolsep*4-\arrayrulewidth*3)*2/4}|}{{\bfseries S\-B\-N Header}}&{\bfseries Data Portion} \\\cline{1-4}
+{\bfseries Message Type} &{\bfseries Uint32 Msg Type}&{\bfseries 8-\/byte String}&{\bfseries Number of bits shown in ()} \\\cline{1-4}
+Announce &0x10 &Sender &Unused \\\cline{1-4}
+Heartbeat &0x20 &Sender &Unused \\\cline{1-4}
+Subscribe &0x30 &Sender &Msg\-Id(16)$|$\-Qo\-S-\/\-Reliability(8)$|$\-Qo\-S-\/\-Priority (8) \\\cline{1-4}
+Unsubscribe &0x40 &Sender &Msg\-Id(16)$|$\-Qo\-S-\/\-Reliability(8)$|$\-Qo\-S-\/\-Priority (8) \\\cline{1-4}
+App Message &0x50 &Sender &Unused \\\cline{1-4}
+\end{TabularC}
+
+
+Next\-: \hyperlink{cfssbnreq}{C\-F\-S Software Bus Network Requirements} \par
+ Prev\-: \hyperlink{cfssbnopr}{C\-F\-S Software Bus Network Operation} 

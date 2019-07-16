@@ -1,0 +1,11 @@
+{
+    "cfsStructureType":"SET_PPE_PDU2_RPC_CHANNEL_STATE_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"ppe_amps_cfs.pdu2.pdu_rpc_state.rpc_pos", "trickType":"uint", "cfsVar":"RPCONOFFSTATE", "cfsType":"uint8"},
+        {"trickVar":"ppe_amps_cfs.pdu2.pdu_rpc_state.rpc_channel", "trickType":"uint", "cfsVar":"rpcCHANNEL", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE84",
+    "commandCode":1,
+    "flowDirection":2
+}

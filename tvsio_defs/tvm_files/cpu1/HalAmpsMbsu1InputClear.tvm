@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"CLEAR_HAL_MBSU1_Input_Curr_Trip_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"hal_amps_cfs.mbsu1.mbsu_clear_input_trip.input_bus", "trickType":"uint", "cfsVar":"INPUT_BUS", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE49",
+    "commandCode":4,
+    "flowDirection":2
+}

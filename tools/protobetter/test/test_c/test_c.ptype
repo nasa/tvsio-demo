@@ -1,0 +1,44 @@
+[
+    {
+        "typeName":"Vector_c",
+        "headerFileName":"protobetter_generated.h",
+
+        "members":
+        [
+            {"name":"id", "type":"uint8_t", "bits":4},
+            {"name":"x", "type":"float"},
+            {"name":"y", "type":"float"},
+            {"name":"z", "type":"float"}
+
+
+        ]
+    },
+    {
+        "typeName":"LilBity_c",
+        "headerFileName":"protobetter_generated.h",
+
+        "members":
+        [
+            {"name":"a", "type":"float"},
+            {"name":"b", "type":"uint32_t", "bits":31},
+            {"name":"c", "type":"uint32_t", "bits":1},
+            {"name":"d", "type":"uint32_t", "bits":4},
+            {"name":"e", "type":"Vector_c", "arraylen":"VECTORC_LEN"},
+            {"name":"f", "type":"int16_t", "bits":16}
+        ]
+    },
+    {
+        "typeName":"Bittylicious_c",
+        "headerFileName":"protobetter_generated.h",
+
+        "members":
+        [
+            {"name":"header", "type":"bytearray", "arraylen":10},            
+            {"name":"a", "type":"double"},
+            {"name":"b", "type":"LilBity_c", "arraylen":"LILBITY_LEN"},
+            {"name":"c", "type":"int16_t", "arraylen":3},
+            {"name":"d", "type":"Vector_c"},
+            {"name":"e", "type":"int8_t", "bits":3}
+        ]
+    }
+]

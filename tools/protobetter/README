@@ -1,0 +1,16 @@
+******************************************************
+******** protobetter serialization library ***********
+******************************************************
+
+This library uses *.ptype files defining an application-agnostic message structure and generates C-API functions which can serialize c-structs with the corresponding message structure.
+
+
+"proto_type" files (extension "*.ptype") are files containing json arrays which define the structure of messages to be consumed/produced by the calling applications.  Example *.ptype files can be found in the test/ directory.
+
+
+To run the protobetter compiler on a set of *.ptype files, execute:
+
+'python protobetter_compiler.py <path_to_ptype_files>'
+(hint: use '-h' or '--help' for other options)
+
+Only dependencies are protobetter_core.h as well as a single generated header/source file pair.

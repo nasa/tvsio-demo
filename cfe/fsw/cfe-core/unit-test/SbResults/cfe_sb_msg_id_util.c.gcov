@@ -1,0 +1,203 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/sb/cfe_sb_msg_id_util.c
+        -:    0:Programs:7
+        -:    1:/******************************************************************************
+        -:    2:** File: cfe_sb_msg_id_util.c
+        -:    3:**
+        -:    4:**      Copyright (c) 2004-2012, United States government as represented by the
+        -:    5:**      administrator of the National Aeronautics Space Administration.
+        -:    6:**      All rights reserved. This software(cFE) was created at NASA's Goddard
+        -:    7:**      Space Flight Center pursuant to government contracts.
+        -:    8:**
+        -:    9:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   10:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   11:**
+        -:   12:**
+        -:   13:**
+        -:   14:** Purpose:
+        -:   15:**      This file contains 'access' macros and functions for reading and
+        -:   16:**      writing message ID header fields.
+        -:   17:**      
+        -:   18:**      The function prototypes are in cfe_sb.h except for ConvertMsgIdToMsgKey
+        -:   19:**      which is in cfe_sb_priv.h
+        -:   20:*
+        -:   21:**      The MsgId is a mission defined message identifier to publish or subscribe to that must be 
+        -:   22:**      unique within the system(s). CFE_SB_MsgId_t is a uint32 that can be created from any 
+        -:   23:**      combination of bits from the primary header SID (StreamId) and the secondary header APID Qualifiers
+        -:   24:**      
+        -:   25:**      Implementation is based on CCSDS Space Packet Protocol 133.0.B-1 with Technical Corrigendum 2, September 2012
+        -:   26:**      The extended secondary header is expected in an upcoming revision of 133.0.B-1
+        -:   27:**
+        -:   28:**      For  MESSAGE_FORMAT_IS_CCSDS_VER_2 the default setup will combine:
+        -:   29:**       1 bit for the command/telemetry flag 
+        -:   30:**       7 bits from the primary header APID
+        -:   31:**       0 bits from the Playback flag
+        -:   32:**       8 bits from the secondary header APID qualifier (Subsystem)
+        -:   33:**       0 bits from the secondary header APID qualifier as the System
+        -:   34:**    = 16 bits total 
+        -:   35:**     
+        -:   36:**
+        -:   37:**     The APID qualifier System field can be populated in the Secondary header but
+        -:   38:**     but will be ignored in the default case for SB/SBN routing purposes. It is suggested 
+        -:   39:**     that the CCSDS Spacecraft ID be used for that field.
+        -:   40:**
+        -:   41:** Notes: The following 4 terms have been or are used in the cFS architecture and implementation
+        -:   42:**         
+        -:   43:**      StreamId - First 16 bits of CCSDS Space Packet Protocol (SPP) 133.0-B.1c2 Blue Book 
+        -:   44:**                 packet primary header. It contains the 3 bit Version Number, 1 bit Packet Type ID,
+        -:   45:**                 1 bit Secondary Header flag, and 11 bit Application Process ID
+        -:   46:**                 It was used in earlier cFS implementaions and defined here for historical reference
+        -:   47:**                 It is NOT exposed to user applications.
+        -:   48:**
+        -:   49:**      MsgId    - Unique numeric message identifier within a mission namespace. It is used by cFS
+        -:   50:**                 applications to the identify messages for publishing and subscribing
+        -:   51:**                 It is used by the SB API and encoded in a mission defended way in the header of 
+        -:   52:**                 all cFS messages.
+        -:   53:**                 It is exposed to all cFS applications
+        -:   54:**
+        -:   55:**      ApId     - CCSDS Application Process Id field in the primary header. 
+        -:   56:**                 It has default bit mask of 0x07FF and is part of the cFS message Id
+        -:   57:**                 It should not be confused with the cFE Executive Services (ES) term appId which
+        -:   58:**                 identifies the software application/component
+        -:   59:**                 It is NOT exposed to user applications.
+        -:   60:**
+        -:   61:**      MsgIdkey - This is a unique numeric key within a mission namespace that is used with  
+        -:   62:**                 cFS software bus internal structures. 
+        -:   63:**                 It is algorithmically created in a mission defined way from the MsgId to support
+        -:   64:**                 efficient lookup and mapping implementations 
+        -:   65:**                 It is NOT exposed to user applications.
+        -:   66:**
+        -:   67:** Author:   J. Wilmot/NASA
+        -:   68:**
+        -:   69:******************************************************************************/
+        -:   70:
+        -:   71:
+        -:   72:/*
+        -:   73:** Include Files
+        -:   74:*/
+        -:   75:#include "cfe_mission_cfg.h"
+        -:   76:#include "ccsds.h"
+        -:   77:#include "cfe_sb.h"
+        -:   78:#include "osapi.h"
+        -:   79:#include "cfe_error.h"
+        -:   80:#include "cfe_sb_priv.h"
+        -:   81:#include "cfe_sb_msg_id_util.h"
+        -:   82:
+        -:   83:
+        -:   84:/******************************************************************************
+        -:   85:**  Function:  CFE_SB_ConvertMsgIdtoMsgKey
+        -:   86:**
+        -:   87:**  Purpose:
+        -:   88:**    Convert the full message Id to the mission defined MsgKey format
+        -:   89:**    No conversion is needed for the default implementation as it
+        -:   90:**    is limited to less than 16 bits by CFE_SB_HIGHEST_VALID_MSGID
+        -:   91:**     If CFE_SB_HIGHEST_VALID_MSGID is greater than 16 bits this function
+        -:   92:**    may need modification to ensure SB internal data structures are a
+        -:   93:**    reasonable size.
+        -:   94:**
+        -:   95:**  Arguments:
+        -:   96:**    Message ID 
+        -:   97:**
+        -:   98:**  Return:
+        -:   99:**    Converted MsgKey in SB internal format
+        -:  100:*/
+      924:  101:CFE_SB_MsgKey_t CFE_SB_ConvertMsgIdtoMsgKey( CFE_SB_MsgId_t MsgId)
+        -:  102:{
+      924:  103:    return CFE_SB_ValueToMsgKey(MsgId);
+        -:  104:}/* CFE_SB_ConvertMsgIdtoMsgKey */
+        -:  105:
+        -:  106:/******************************************************************************
+        -:  107:**  Function:  CFE_SB_GetMsgId
+        -:  108:**
+        -:  109:**  Purpose:
+        -:  110:**    Convert the CCSDS SPP APID in the packet to the internal MsgId ID format
+        -:  111:**       used for SB APIs and routing.
+        -:  112:**
+        -:  113:**    For backward compatability with the existing CCSDS SPP version 1 code base
+        -:  114:**    the function name has not been changed
+        -:  115:**
+        -:  116:**  Arguments:
+        -:  117:**    MsgPtr - Pointer to a CCSDS SPP message packet
+        -:  118:**
+        -:  119:**  Return:
+        -:  120:**    The Message Id in the message packet converted to the cFS MsgId
+        -:  121:*/
+    65617:  122:CFE_SB_MsgId_t CFE_SB_GetMsgId(CFE_SB_MsgPtr_t MsgPtr)
+        -:  123:{
+    65617:  124:   CFE_SB_MsgId_t MsgId = 0;
+        -:  125:
+        -:  126:#ifdef MESSAGE_FORMAT_IS_CCSDS
+        -:  127:
+        -:  128:#ifndef MESSAGE_FORMAT_IS_CCSDS_VER_2  
+    65617:  129:    MsgId = CCSDS_RD_SID(MsgPtr->Hdr);
+        -:  130:#else
+        -:  131:
+        -:  132:    uint32            SubSystemId;
+        -:  133:
+        -:  134:    MsgId = CCSDS_RD_APID(MsgPtr->Hdr); /* Primary header APID  */
+        -:  135:     
+        -:  136:    if ( CCSDS_RD_TYPE(MsgPtr->Hdr) == CCSDS_CMD)
+        -:  137:      MsgId = MsgId | CFE_SB_CMD_MESSAGE_TYPE;  
+        -:  138:
+        -:  139:    /* Add in the SubSystem ID as needed */
+        -:  140:    SubSystemId = CCSDS_RD_SUBSYSTEM_ID(MsgPtr->SpacePacket.ApidQ);
+        -:  141:    MsgId = (MsgId | (SubSystemId << 8));
+        -:  142:
+        -:  143:/* Example code to add in the System ID as needed. */
+        -:  144:/*   The default is to init this field to the Spacecraft ID but ignore for routing.   */
+        -:  145:/*   To fully implement this field would require significant SB optimization to avoid */
+        -:  146:/*   prohibitively large routing and index tables. */
+        -:  147:/*      uint16            SystemId;                              */
+        -:  148:/*      SystemId = CCSDS_RD_SYSTEM_ID(HdrPtr->ApidQ);            */
+        -:  149:/*      MsgId = (MsgId | (SystemId << 16)); */
+        -:  150:
+        -:  151:#endif
+        -:  152:#endif
+        -:  153:
+    65617:  154:return MsgId;
+        -:  155:
+        -:  156:}/* end CFE_SB_GetMsgId */
+        -:  157:
+        -:  158:
+        -:  159:/******************************************************************************
+        -:  160:**  Function:  CFE_SB_SetMsgId
+        -:  161:**
+        -:  162:**  Purpose:
+        -:  163:**    Set the message Id of a message in CCSDS header format
+        -:  164:**
+        -:  165:**  Arguments:
+        -:  166:**    MsgPtr - Pointer to a CFE_SB_Msg_t
+        -:  167:**    MsgId  - Message Id to be written
+        -:  168:**
+        -:  169:**
+        -:  170:**  Return:
+        -:  171:**    (none)
+        -:  172:*/
+    65826:  173:void CFE_SB_SetMsgId(CFE_SB_MsgPtr_t MsgPtr,
+        -:  174:                     CFE_SB_MsgId_t MsgId)
+        -:  175:{
+        -:  176:
+        -:  177:#ifndef MESSAGE_FORMAT_IS_CCSDS_VER_2  
+    65826:  178:    CCSDS_WR_SID(MsgPtr->Hdr, MsgId);
+        -:  179:#else
+        -:  180:  CCSDS_WR_VERS(MsgPtr->SpacePacket.Hdr, 1);
+        -:  181:
+        -:  182:  /* Set the stream ID APID in the primary header. */
+        -:  183:  CCSDS_WR_APID(MsgPtr->SpacePacket.Hdr, CFE_SB_RD_APID_FROM_MSGID(MsgId) );
+        -:  184:  
+        -:  185:  CCSDS_WR_TYPE(MsgPtr->SpacePacket.Hdr, CFE_SB_RD_TYPE_FROM_MSGID(MsgId) );
+        -:  186:  
+        -:  187:  
+        -:  188:  CCSDS_CLR_SEC_APIDQ(MsgPtr->SpacePacket.ApidQ);
+        -:  189:  
+        -:  190:  CCSDS_WR_EDS_VER(MsgPtr->SpacePacket.ApidQ, 1);
+        -:  191:  
+        -:  192:  CCSDS_WR_ENDIAN(MsgPtr->SpacePacket.ApidQ, CFE_PLATFORM_ENDIAN);
+        -:  193:  
+        -:  194:  CCSDS_WR_PLAYBACK(MsgPtr->SpacePacket.ApidQ, FALSE);
+        -:  195:  
+        -:  196:  CCSDS_WR_SUBSYSTEM_ID(MsgPtr->SpacePacket.ApidQ, CFE_SB_RD_SUBSYS_ID_FROM_MSGID(MsgId));
+        -:  197:  
+        -:  198:  CCSDS_WR_SYSTEM_ID(MsgPtr->SpacePacket.ApidQ, CFE_SPACECRAFT_ID);
+        -:  199:
+        -:  200:#endif 
+    65826:  201:}/* end CFE_SB_SetMsgId */

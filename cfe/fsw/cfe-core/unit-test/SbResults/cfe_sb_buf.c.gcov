@@ -1,0 +1,254 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/sb/cfe_sb_buf.c
+        -:    0:Programs:7
+        -:    1:/******************************************************************************
+        -:    2:** File: cfe_sb_buf.c
+        -:    3:**
+        -:    4:**      Copyright (c) 2004-2012, United States government as represented by the
+        -:    5:**      administrator of the National Aeronautics Space Administration.
+        -:    6:**      All rights reserved. This software(cFE) was created at NASA's Goddard
+        -:    7:**      Space Flight Center pursuant to government contracts.
+        -:    8:**
+        -:    9:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   10:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   11:**
+        -:   12:** Purpose:
+        -:   13:**      This file contains the source code for the SB memory management
+        -:   14:**      functions.
+        -:   15:**
+        -:   16:** Author:   R.McGraw/SSI
+        -:   17:**
+        -:   18:******************************************************************************/
+        -:   19:
+        -:   20:/*
+        -:   21:**  Include Files
+        -:   22:*/
+        -:   23:
+        -:   24:#include "cfe_sb_priv.h"
+        -:   25:#include "cfe_sb_events.h"
+        -:   26:#include "osapi.h"
+        -:   27:#include "cfe_es.h"
+        -:   28:#include "cfe_error.h"
+        -:   29:
+        -:   30:/******************************************************************************
+        -:   31:**  Function:   CFE_SB_GetBufferFromPool()
+        -:   32:**
+        -:   33:**  Purpose:
+        -:   34:**    Request a buffer from the SB buffer pool. The SB buffer pool is a
+        -:   35:**    pre-allocated block of memory of size CFE_PLATFORM_SB_BUF_MEMORY_BYTES. It is used
+        -:   36:**    by the SB to dynamically allocate memory to hold the message and a buffer
+        -:   37:**    descriptor associated with the message during the sending of a message.
+        -:   38:**
+        -:   39:**  Arguments:
+        -:   40:**    msgId        : Message ID
+        -:   41:**    size         : Size of the buffer in bytes.
+        -:   42:**
+        -:   43:**  Return:
+        -:   44:**    Pointer to the buffer descriptor for the new buffer, or NULL if the buffer
+        -:   45:**    could not be allocated.
+        -:   46:*/
+        -:   47:
+       22:   48:CFE_SB_BufferD_t * CFE_SB_GetBufferFromPool(CFE_SB_MsgId_t MsgId, uint16 Size) {
+        -:   49:   int32                stat1;
+       22:   50:   uint8               *address = NULL;
+       22:   51:   CFE_SB_BufferD_t    *bd = NULL;
+        -:   52:
+        -:   53:    /* Allocate a new buffer descriptor from the SB memory pool.*/
+       22:   54:    stat1 = CFE_ES_GetPoolBuf((uint32 **)&bd, CFE_SB.Mem.PoolHdl,  Size + sizeof(CFE_SB_BufferD_t));
+       22:   55:    if(stat1 < 0){
+        1:   56:        return NULL;
+        -:   57:    }
+        -:   58:
+        -:   59:    /* increment the number of buffers in use and adjust the high water mark if needed */
+       21:   60:    CFE_SB.StatTlmMsg.Payload.SBBuffersInUse++;
+       21:   61:    if(CFE_SB.StatTlmMsg.Payload.SBBuffersInUse > CFE_SB.StatTlmMsg.Payload.PeakSBBuffersInUse){
+       19:   62:        CFE_SB.StatTlmMsg.Payload.PeakSBBuffersInUse = CFE_SB.StatTlmMsg.Payload.SBBuffersInUse;
+        -:   63:    }/* end if */
+        -:   64:
+        -:   65:    /* Add the size of the actual buffer to the memory-in-use ctr and */
+        -:   66:    /* adjust the high water mark if needed */
+       21:   67:    CFE_SB.StatTlmMsg.Payload.MemInUse+=stat1;
+       21:   68:    if(CFE_SB.StatTlmMsg.Payload.MemInUse > CFE_SB.StatTlmMsg.Payload.PeakMemInUse){
+       20:   69:        CFE_SB.StatTlmMsg.Payload.PeakMemInUse = CFE_SB.StatTlmMsg.Payload.MemInUse;
+        -:   70:    }/* end if */
+        -:   71:
+        -:   72:    /* first set ptr to actual msg buffer the same as ptr to descriptor */
+       21:   73:    address = (uint8 *)bd;
+        -:   74:
+        -:   75:    /* increment actual msg buffer ptr beyond the descriptor */
+       21:   76:    address += sizeof(CFE_SB_BufferD_t);
+        -:   77:
+        -:   78:    /* Initialize the buffer descriptor structure. */
+       21:   79:    bd->MsgId     = MsgId;
+       21:   80:    bd->UseCount  = 1;
+       21:   81:    bd->Size      = Size;
+       21:   82:    bd->Buffer    = (void *)address;
+        -:   83:
+       21:   84:    return bd;
+        -:   85:
+        -:   86:}/* CFE_SB_GetBufferFromPool */
+        -:   87:
+        -:   88:
+        -:   89:/******************************************************************************
+        -:   90:**  Function:   CFE_SB_GetBufferFromCaller()
+        -:   91:**
+        -:   92:**  Purpose:
+        -:   93:**    Request a buffer from the SB buffer pool to use as a buffer descriptor
+        -:   94:**    for and already created SB buffer.
+        -:   95:**
+        -:   96:**  Arguments:
+        -:   97:**    msgId        : Message ID
+        -:   98:**    Address      : Address of the buffer
+        -:   99:**
+        -:  100:**  Return:
+        -:  101:**    Pointer to the buffer descriptor for the suplied buffer, or NULL if the
+        -:  102:**    descriptor could not be allocated.
+        -:  103:*/
+        -:  104:
+        6:  105:CFE_SB_BufferD_t * CFE_SB_GetBufferFromCaller(CFE_SB_MsgId_t MsgId,
+        -:  106:                                              void *Address) {
+        6:  107:   CFE_SB_BufferD_t    *bd = (CFE_SB_BufferD_t *)(((uint8 *)Address) - sizeof(CFE_SB_BufferD_t));
+        -:  108:
+        -:  109:    /* Initialize the MsgId in the buffer descriptor (the rest has already been initialized in this case). */
+        6:  110:    bd->MsgId     = MsgId;
+        -:  111:
+        6:  112:    return bd;
+        -:  113:
+        -:  114:}/* CFE_SB_GetBufferFromCaller */
+        -:  115:
+        -:  116:
+        -:  117:/******************************************************************************
+        -:  118:**  Function:   CFE_SB_ReturnBufferToPool()
+        -:  119:**
+        -:  120:**  Purpose:
+        -:  121:**    This function will return two blocks of memory back to the memory pool.
+        -:  122:**    One block is the memory used to store the actual message, the other block
+        -:  123:**    was used to store the buffer descriptor for the message.
+        -:  124:**
+        -:  125:**  Arguments:
+        -:  126:**    bd     : Pointer to the buffer descriptor.
+        -:  127:**
+        -:  128:**  Return:
+        -:  129:**    SB status
+        -:  130:*/
+       27:  131:int32 CFE_SB_ReturnBufferToPool(CFE_SB_BufferD_t *bd){
+        -:  132:    int32    Stat;
+        -:  133:
+        -:  134:    /* give the buf descriptor back to the buf descriptor pool */
+       27:  135:    Stat = CFE_ES_PutPoolBuf(CFE_SB.Mem.PoolHdl, (uint32 *)bd);
+       27:  136:    if(Stat > 0){
+       26:  137:        CFE_SB.StatTlmMsg.Payload.SBBuffersInUse--;
+        -:  138:        /* Substract the size of a buffer descriptor from the Memory in use ctr */
+       26:  139:        CFE_SB.StatTlmMsg.Payload.MemInUse-=Stat;
+        -:  140:    }/* end if */
+        -:  141:
+       27:  142:    return CFE_SUCCESS;
+        -:  143:
+        -:  144:}/* end CFE_SB_ReturnBufferToPool */
+        -:  145:
+        -:  146:
+        -:  147:
+        -:  148:/******************************************************************************
+        -:  149:**  Function:   CFE_SB_DecrBufUseCnt()
+        -:  150:**
+        -:  151:**  Purpose:
+        -:  152:**    This function will decrement the UseCount of a particular buffer. If the
+        -:  153:**    the UseCount is decremented to zero, it will return the buffer to the
+        -:  154:**    memory pool.
+        -:  155:**
+        -:  156:**  Note:
+        -:  157:**    UseCount is a variable in the CFE_SB_BufferD_t and is used only to
+        -:  158:**    determine when a buffer may be returned to the memory pool.
+        -:  159:**
+        -:  160:**  Arguments:
+        -:  161:**    bd : Pointer to the buffer descriptor.
+        -:  162:**
+        -:  163:**  Return:
+        -:  164:**    CFE_SUCCESS for normal operation.
+        -:  165:*/
+       42:  166:int32 CFE_SB_DecrBufUseCnt(CFE_SB_BufferD_t *bd){
+        -:  167:
+        -:  168:    /* range check the UseCount variable */
+       42:  169:    if(bd->UseCount > 0){
+        -:  170:
+       40:  171:        bd->UseCount--;
+        -:  172:
+       40:  173:        if (bd->UseCount == 0) {
+       26:  174:           CFE_SB_ReturnBufferToPool(bd);
+        -:  175:        }/* end if */
+        -:  176:
+        -:  177:    }
+        -:  178:
+       42:  179:    return CFE_SUCCESS;
+        -:  180:
+        -:  181:}/* end CFE_SB_DecrBufUseCnt */
+        -:  182:
+        -:  183:
+        -:  184:
+        -:  185:/******************************************************************************
+        -:  186:**  Function:   CFE_SB_GetDestinationBlk()
+        -:  187:**
+        -:  188:**  Purpose:
+        -:  189:**    This function gets a destination descriptor from the SB memory pool.
+        -:  190:**
+        -:  191:**  Arguments:
+        -:  192:**    None
+        -:  193:**
+        -:  194:**  Return:
+        -:  195:**    Pointer to the destination descriptor
+        -:  196:*/
+      430:  197:CFE_SB_DestinationD_t *CFE_SB_GetDestinationBlk(void)
+        -:  198:{
+        -:  199:    int32 Stat;
+      430:  200:    CFE_SB_DestinationD_t *Dest = NULL;
+        -:  201:
+        -:  202:    /* Allocate a new destination descriptor from the SB memory pool.*/
+      430:  203:    Stat = CFE_ES_GetPoolBuf((uint32 **)&Dest, CFE_SB.Mem.PoolHdl,  sizeof(CFE_SB_DestinationD_t));
+      430:  204:    if(Stat < 0){
+        2:  205:        return NULL;
+        -:  206:    }
+        -:  207:
+        -:  208:    /* Add the size of a destination descriptor to the memory-in-use ctr and */
+        -:  209:    /* adjust the high water mark if needed */
+      428:  210:    CFE_SB.StatTlmMsg.Payload.MemInUse+=Stat;
+      428:  211:    if(CFE_SB.StatTlmMsg.Payload.MemInUse > CFE_SB.StatTlmMsg.Payload.PeakMemInUse){
+      420:  212:       CFE_SB.StatTlmMsg.Payload.PeakMemInUse = CFE_SB.StatTlmMsg.Payload.MemInUse;
+        -:  213:    }/* end if */
+        -:  214:
+      428:  215:    return Dest;
+        -:  216:
+        -:  217:}/* end CFE_SB_GetDestinationBlk */
+        -:  218:
+        -:  219:
+        -:  220:/******************************************************************************
+        -:  221:**  Function:   CFE_SB_PutDestinationBlk()
+        -:  222:**
+        -:  223:**  Purpose:
+        -:  224:**    This function returns a destination descriptor to the SB memory pool.
+        -:  225:**
+        -:  226:**  Arguments:
+        -:  227:**    None
+        -:  228:**
+        -:  229:**  Return:
+        -:  230:**    Pointer to the destination descriptor
+        -:  231:*/
+      425:  232:int32 CFE_SB_PutDestinationBlk(CFE_SB_DestinationD_t *Dest)
+        -:  233:{
+        -:  234:    int32 Stat;
+        -:  235:
+      425:  236:    if(Dest==NULL){
+        1:  237:        return CFE_SB_BAD_ARGUMENT;
+        -:  238:    }/* end if */
+        -:  239:
+        -:  240:    /* give the destination block back to the SB memory pool */
+      424:  241:    Stat = CFE_ES_PutPoolBuf(CFE_SB.Mem.PoolHdl, (uint32 *)Dest);
+      424:  242:    if(Stat > 0){
+        -:  243:        /* Substract the size of the destination block from the Memory in use ctr */
+      423:  244:        CFE_SB.StatTlmMsg.Payload.MemInUse-=Stat;
+        -:  245:    }/* end if */
+        -:  246:
+      424:  247:    return CFE_SUCCESS;
+        -:  248:
+        -:  249:}/* end CFE_SB_PutDestinationBlk */
+        -:  250:
+        -:  251:
+        -:  252:/*****************************************************************************/

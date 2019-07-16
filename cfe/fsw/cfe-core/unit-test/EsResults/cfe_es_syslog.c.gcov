@@ -1,0 +1,561 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/es/cfe_es_syslog.c
+        -:    0:Programs:11
+        -:    1:/*
+        -:    2:**  File:  
+        -:    3:**    cfe_es_syslog.c
+        -:    4:**
+        -:    5:**      Copyright (c) 2004-2012, United States government as represented by the 
+        -:    6:**      administrator of the National Aeronautics Space Administration.  
+        -:    7:**      All rights reserved. This software(cFE) was created at NASA's Goddard 
+        -:    8:**      Space Flight Center pursuant to government contracts.
+        -:    9:**
+        -:   10:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   11:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   12:**
+        -:   13:**  Purpose:  
+        -:   14:**    This file implements the cFE Executive Services System Log functions.
+        -:   15:**
+        -:   16:**  References:
+        -:   17:**     Flight Software Branch C Coding Standard Version 1.0a
+        -:   18:**     cFE Flight Software Application Developers Guide
+        -:   19:**
+        -:   20:**  Notes:
+        -:   21:**
+        -:   22:**     Some functions have EXTERNAL SYNC REQUIREMENTS
+        -:   23:**
+        -:   24:**     Syslog functions marked with "Unsync" in their name are designated
+        -:   25:**     as functions which are _not_ safe to be called concurrently by multiple
+        -:   26:**     threads, and also do _not_ implement any locking or protection.  These
+        -:   27:**     functions expect the caller to perform all thread synchronization before
+        -:   28:**     calling it.
+        -:   29:**
+        -:   30:**     The synchronization requirement is across all functions; i.e. it is not safe
+        -:   31:**     to call B_Unsync() while A_Unsync() is executing or vice-versa.  The external
+        -:   32:**     lock must wait until A_Unsync() finishes before calling B_Unsync().
+        -:   33:**
+        -:   34:**     The expectation is that the required level of synchronization can be achieved
+        -:   35:**     using the existing ES shared data lock.  However, if it becomes necessary, this
+        -:   36:**     could be replaced with a finer grained syslog-specific lock.
+        -:   37:*/
+        -:   38:
+        -:   39:/*
+        -:   40:** Required header files.
+        -:   41:*/
+        -:   42:#include "cfe.h"
+        -:   43:#include "cfe_es.h"
+        -:   44:#include "cfe_es_global.h"
+        -:   45:#include "cfe_es_task.h"
+        -:   46:#include "cfe_es_log.h"
+        -:   47:
+        -:   48:#include <string.h>
+        -:   49:#include <stdio.h>
+        -:   50:#include <stdarg.h>
+        -:   51:#include <ctype.h>
+        -:   52:
+        -:   53:
+        -:   54:
+        -:   55:
+        -:   56:/*******************************************************************
+        -:   57: *
+        -:   58: * Non-synchronized helper functions
+        -:   59: *
+        -:   60: * An external mutex be held while calling any function marked "Unsync"
+        -:   61: * These helper functions are local to the ES subsystem and must _NOT_
+        -:   62: * be exposed to the public API.
+        -:   63: *
+        -:   64: * For external access, a public wrapper API must first acquire the
+        -:   65: * necessary mutex before calling any function marked as "Unsync"
+        -:   66: *
+        -:   67: *******************************************************************/
+        -:   68:
+        -:   69:
+        -:   70:/*
+        -:   71: * -----------------------------------------------------------------
+        -:   72: * CFE_ES_SysLogClear --
+        -:   73: * Clear system log & index
+        -:   74: * -----------------------------------------------------------------
+        -:   75: */
+        1:   76:void CFE_ES_SysLogClear_Unsync(void)
+        -:   77:{
+        -:   78:    /*
+        -:   79:     * Note - no need to actually memset the SystemLog buffer -
+        -:   80:     * by simply zeroing out the indices will cover it.
+        -:   81:     */
+        -:   82:
+        1:   83:    CFE_ES_ResetDataPtr->SystemLogWriteIdx = 0;
+        1:   84:    CFE_ES_ResetDataPtr->SystemLogEndIdx = 0;
+        1:   85:    CFE_ES_ResetDataPtr->SystemLogEntryNum = 0;
+        -:   86:
+        1:   87:} /* End of CFE_ES_SysLogClear_Unsync() */
+        -:   88:
+        -:   89:/*
+        -:   90: * -----------------------------------------------------------------
+        -:   91: * CFE_ES_SysLogReadStart_Unsync --
+        -:   92: * Locate start (oldest message) of syslog for reading
+        -:   93: * -----------------------------------------------------------------
+        -:   94: */
+        5:   95:void CFE_ES_SysLogReadStart_Unsync(CFE_ES_SysLogReadBuffer_t *Buffer)
+        -:   96:{
+        -:   97:    size_t ReadIdx;
+        -:   98:    size_t EndIdx;
+        -:   99:    size_t TotalSize;
+        -:  100:
+        5:  101:    ReadIdx = CFE_ES_ResetDataPtr->SystemLogWriteIdx;
+        5:  102:    EndIdx = CFE_ES_ResetDataPtr->SystemLogEndIdx;
+        5:  103:    TotalSize = EndIdx;
+        -:  104:
+        -:  105:    /*
+        -:  106:     * Ensure that we start reading at the start of a message
+        -:  107:     * Likely pointing to an old fragment right now -- find the end of it
+        -:  108:     */
+     4615:  109:    while (TotalSize > 0 && ReadIdx < EndIdx)
+        -:  110:    {
+     4607:  111:        ++ReadIdx;
+     4607:  112:        --TotalSize;
+     4607:  113:        if (CFE_ES_ResetDataPtr->SystemLog[ReadIdx-1] == '\n')
+        -:  114:        {
+        2:  115:            break;
+        -:  116:        }
+        -:  117:    }
+        -:  118:
+        5:  119:    Buffer->SizeLeft = TotalSize;
+        5:  120:    Buffer->LastOffset = ReadIdx;
+        5:  121:    Buffer->EndIdx = EndIdx;
+        5:  122:    Buffer->BlockSize = 0;
+        5:  123:} /* End of CFE_ES_SysLogReadStart_Unsync() */
+        -:  124:
+        -:  125:/*
+        -:  126: * -----------------------------------------------------------------
+        -:  127: * CFE_ES_SysLogAppend_Unsync() --
+        -:  128: * Append a preformatted string to the syslog
+        -:  129: * -----------------------------------------------------------------
+        -:  130: */
+      512:  131:int32 CFE_ES_SysLogAppend_Unsync(const char *LogString)
+        -:  132:{
+        -:  133:    int32 ReturnCode;
+        -:  134:    size_t MessageLen;
+        -:  135:    size_t WriteIdx;
+        -:  136:    size_t EndIdx;
+        -:  137:
+        -:  138:    /*
+        -:  139:     * Sanity check - Make sure the message length is actually reasonable
+        -:  140:     * Do not allow any single message to consume more than half of the total log
+        -:  141:     * (even this may be overly generous)
+        -:  142:     */
+      512:  143:    MessageLen = strlen(LogString);
+      512:  144:    if ( MessageLen > (CFE_PLATFORM_ES_SYSTEM_LOG_SIZE / 2) )
+        -:  145:    {
+        1:  146:        MessageLen = CFE_PLATFORM_ES_SYSTEM_LOG_SIZE / 2;
+        1:  147:        ReturnCode = CFE_ES_ERR_SYS_LOG_TRUNCATED;
+        -:  148:    }
+        -:  149:    else
+        -:  150:    {
+      511:  151:        ReturnCode = CFE_SUCCESS;
+        -:  152:    }
+        -:  153:
+        -:  154:    /*
+        -:  155:     * Final sanity check -- do not bother logging empty messages
+        -:  156:     */
+      512:  157:    if (MessageLen == 0)
+        -:  158:    {
+        1:  159:        return ReturnCode;
+        -:  160:    }
+        -:  161:
+        -:  162:    /*
+        -:  163:     * Real work begins --
+        -:  164:     * Take a local snapshot of the head & tail index values
+        -:  165:     *
+        -:  166:     * WriteIdx -> indicates 1 byte past the end of the newest message
+        -:  167:     *      (this is the place where new messages will be added)
+        -:  168:     *
+        -:  169:     * EndIdx -> indicates the entire size of the buffer
+        -:  170:     *
+        -:  171:     * Keeping them in local stack variables allows more efficient modification,
+        -:  172:     * since CFE_ES_ResetDataPtr may point directly into a slower NVRAM space.
+        -:  173:     */
+      511:  174:    WriteIdx = CFE_ES_ResetDataPtr->SystemLogWriteIdx;
+      511:  175:    EndIdx = CFE_ES_ResetDataPtr->SystemLogEndIdx;
+        -:  176:
+        -:  177:    /*
+        -:  178:     * Check if the log message plus will fit between
+        -:  179:     * the HeadIdx and the end of the buffer.
+        -:  180:     *
+        -:  181:     * If so, then the process can proceed as normal.
+        -:  182:     *
+        -:  183:     * If not, then the action depends on the setting of "SystemLogMode" which will be
+        -:  184:     * to either discard (default) or overwrite
+        -:  185:     */
+      511:  186:    if ( (WriteIdx + MessageLen) > CFE_PLATFORM_ES_SYSTEM_LOG_SIZE )
+        -:  187:    {
+       12:  188:        if ( CFE_ES_ResetDataPtr->SystemLogMode == CFE_ES_LogMode_OVERWRITE )
+        -:  189:        {
+        -:  190:            /* In "overwrite" mode, start back at the beginning of the buffer */
+       10:  191:            EndIdx = WriteIdx;
+       10:  192:            WriteIdx = 0;
+        -:  193:        }
+        2:  194:        else if (WriteIdx < (CFE_PLATFORM_ES_SYSTEM_LOG_SIZE - CFE_TIME_PRINTED_STRING_SIZE))
+        -:  195:        {
+        -:  196:            /* In "discard" mode, save as much as possible and discard the remainder of the message
+        -:  197:             * However this should only be done if there is enough room for at least a full timestamp,
+        -:  198:             * otherwise the fragment will not be useful at all. */
+        1:  199:            MessageLen = CFE_PLATFORM_ES_SYSTEM_LOG_SIZE - WriteIdx;
+        1:  200:            ReturnCode = CFE_ES_ERR_SYS_LOG_TRUNCATED;
+        -:  201:        }
+        -:  202:        else
+        -:  203:        {
+        -:  204:            /* entire message must be discarded */
+        1:  205:            MessageLen = 0;
+        -:  206:        }
+        -:  207:    }
+        -:  208:
+      511:  209:    if (MessageLen == 0)
+        -:  210:    {
+        1:  211:        ReturnCode = CFE_ES_ERR_SYS_LOG_FULL;
+        -:  212:    }
+        -:  213:    else
+        -:  214:    {
+        -:  215:        /*
+        -:  216:         * Copy the message in, EXCEPT for the last char which is probably a newline
+        -:  217:         */
+      510:  218:        memcpy(&CFE_ES_ResetDataPtr->SystemLog[WriteIdx], LogString, MessageLen - 1);
+      510:  219:        WriteIdx += MessageLen;
+        -:  220:
+        -:  221:        /*
+        -:  222:         * Ensure the that last-written character is a newline.
+        -:  223:         * This would have been enforced already except in cases where
+        -:  224:         * the message got truncated.
+        -:  225:         */
+      510:  226:        CFE_ES_ResetDataPtr->SystemLog[WriteIdx - 1] = '\n';
+        -:  227:
+        -:  228:        /*
+        -:  229:         * Keep track of the buffer endpoint for future reference
+        -:  230:         */
+      510:  231:        if (WriteIdx > EndIdx)
+        -:  232:        {
+      130:  233:            EndIdx = WriteIdx;
+        -:  234:        }
+        -:  235:
+        -:  236:        /*
+        -:  237:         * Export updated index values to the reset area for next time.
+        -:  238:         */
+      510:  239:        CFE_ES_ResetDataPtr->SystemLogWriteIdx = WriteIdx;
+      510:  240:        CFE_ES_ResetDataPtr->SystemLogEndIdx = EndIdx;
+      510:  241:        ++CFE_ES_ResetDataPtr->SystemLogEntryNum;
+        -:  242:    }
+        -:  243:
+      511:  244:    return (ReturnCode);
+        -:  245:} /* End of CFE_ES_SysLogAppend_Unsync() */
+        -:  246:
+        -:  247:/*
+        -:  248: * -----------------------------------------------------------------
+        -:  249: * CFE_ES_SysLogWrite_Unsync() --
+        -:  250: * Identical to the public CFE_ES_WriteToSysLog() function, except
+        -:  251: * that it operates in an unsynchronized manner.  It can be used in
+        -:  252: * cases where the appropriate lock is already held for other reasons
+        -:  253: * -----------------------------------------------------------------
+        -:  254: */
+      153:  255:int32 CFE_ES_SysLogWrite_Unsync(const char *SpecStringPtr, ...)
+        -:  256:{
+        -:  257:    char          TmpString[CFE_ES_MAX_SYSLOG_MSG_SIZE];
+        -:  258:    va_list       ArgPtr;
+        -:  259:
+      153:  260:    va_start(ArgPtr, SpecStringPtr);
+      153:  261:    CFE_ES_SysLog_vsnprintf(TmpString, sizeof(TmpString), SpecStringPtr, ArgPtr);
+      153:  262:    va_end(ArgPtr);
+        -:  263:
+        -:  264:    /* Output the entry to the console */
+      153:  265:    OS_printf("%s",TmpString);
+        -:  266:
+        -:  267:    /*
+        -:  268:     * Append to the syslog buffer
+        -:  269:     */
+      153:  270:    return CFE_ES_SysLogAppend_Unsync(TmpString);
+        -:  271:} /* End of CFE_ES_SysLogWrite_Unsync() */
+        -:  272:
+        -:  273:
+        -:  274:/*******************************************************************
+        -:  275: *
+        -:  276: * Additional helper functions
+        -:  277: *
+        -:  278: * These functions either perform all necessary synchronization internally,
+        -:  279: * or they have no specific synchronization requirements
+        -:  280: *
+        -:  281: *******************************************************************/
+        -:  282:
+        -:  283:
+        -:  284:/*
+        -:  285: * -----------------------------------------------------------------
+        -:  286: * CFE_ES_SysLogReadData --
+        -:  287: * Copy data out of the syslog buffer into a local buffer
+        -:  288: * -----------------------------------------------------------------
+        -:  289: */
+        9:  290:void CFE_ES_SysLogReadData(CFE_ES_SysLogReadBuffer_t *Buffer)
+        -:  291:{
+        -:  292:    size_t BlockSize;
+        -:  293:
+        9:  294:    Buffer->BlockSize = 0;
+       24:  295:    while (Buffer->SizeLeft > 0 && Buffer->BlockSize < sizeof(Buffer->Data))
+        -:  296:    {
+        -:  297:        /*
+        -:  298:         * The next block to copy will be the SMALLEST of:
+        -:  299:         *  - total remaining (un-copied) size of the syslog data
+        -:  300:         *  - space available in the output buffer
+        -:  301:         *  - space between the current read offset and the end of the log buffer (wrap point)
+        -:  302:         */
+        6:  303:        BlockSize = sizeof(Buffer->Data) - Buffer->BlockSize;
+        6:  304:        if (Buffer->LastOffset >= Buffer->EndIdx)
+        -:  305:        {
+        1:  306:            Buffer->LastOffset = 0;
+        -:  307:        }
+        6:  308:        if ((Buffer->LastOffset + BlockSize) > Buffer->EndIdx)
+        -:  309:        {
+        3:  310:            BlockSize = Buffer->EndIdx - Buffer->LastOffset;
+        -:  311:        }
+        6:  312:        if (BlockSize > Buffer->SizeLeft)
+        -:  313:        {
+        1:  314:            BlockSize = Buffer->SizeLeft;
+        -:  315:        }
+        -:  316:
+        6:  317:        if (BlockSize == 0)
+        -:  318:        {
+        -:  319:            /* should be impossible for this to happen,
+        -:  320:             * just in case, do not spin endlessly */
+    #####:  321:            break;
+        -:  322:        }
+        -:  323:
+       12:  324:        memcpy(&Buffer->Data[Buffer->BlockSize],
+       12:  325:                &CFE_ES_ResetDataPtr->SystemLog[Buffer->LastOffset],
+        -:  326:                BlockSize);
+        -:  327:
+        6:  328:        Buffer->BlockSize += BlockSize;
+        6:  329:        Buffer->LastOffset += BlockSize;
+        6:  330:        Buffer->SizeLeft -= BlockSize;
+        -:  331:    }
+        9:  332:} /* End of CFE_ES_SysLogReadData() */
+        -:  333:
+        -:  334:/*
+        -:  335: * -----------------------------------------------------------------
+        -:  336: * CFE_ES_SysLogOverwrite() --
+        -:  337: * Sets the SysLog Write mode (discard or overwrite)
+        -:  338: * -----------------------------------------------------------------
+        -:  339: */
+        3:  340:int32 CFE_ES_SysLogSetMode(CFE_ES_LogMode_Enum_t Mode)
+        -:  341:{
+        -:  342:    int32 Status;
+        -:  343:
+        5:  344:    if((Mode == CFE_ES_LogMode_OVERWRITE) || (Mode == CFE_ES_LogMode_DISCARD))
+        -:  345:    {
+        2:  346:        CFE_ES_ResetDataPtr->SystemLogMode = Mode;
+        2:  347:        Status = CFE_SUCCESS;
+        -:  348:    }
+        -:  349:    else
+        -:  350:    {
+        1:  351:        Status = CFE_ES_BAD_ARGUMENT;
+        -:  352:    }
+        -:  353:
+        3:  354:    return Status;
+        -:  355:} /* End of CFE_ES_SysLogSetMode() */
+        -:  356:
+        -:  357:/*
+        -:  358: * -----------------------------------------------------------------
+        -:  359: * CFE_ES_SysLog_vsnprintf() --
+        -:  360: * Obtain a correctly formatted, time stamped message for output to the syslog,
+        -:  361: * with arguments similar to the "vsnprintf()" C library API call
+        -:  362: * -----------------------------------------------------------------
+        -:  363: */
+      510:  364:void CFE_ES_SysLog_vsnprintf(char *Buffer, size_t BufferSize, const char *SpecStringPtr, va_list ap)
+        -:  365:{
+        -:  366:    size_t StringLen;
+        -:  367:    size_t MaxLen;
+        -:  368:    int PrintLen;
+        -:  369:
+        -:  370:    /*
+        -:  371:     * write the current time into the TmpString buffer
+        -:  372:     *
+        -:  373:     * Note that CFE_TIME_Print() is expected to produce a string of exactly
+        -:  374:     * CFE_TIME_PRINTED_STRING_SIZE in length.
+        -:  375:     */
+      510:  376:    StringLen = 0;
+      510:  377:    if (BufferSize > (CFE_TIME_PRINTED_STRING_SIZE + 2))
+        -:  378:    {
+        -:  379:        /*
+        -:  380:         * The "useful" buffer size is two less than the supplied buffer -
+        -:  381:         * due to the addition of a newline and a null char to terminate the string
+        -:  382:         */
+      510:  383:        MaxLen = BufferSize - 2;
+        -:  384:
+      510:  385:        CFE_TIME_Print(Buffer, CFE_TIME_GetTime());
+        -:  386:
+        -:  387:        /* using strlen() anyway in case the specific format of CFE_TIME_Print() changes someday */
+      510:  388:        StringLen = strlen(Buffer);
+      510:  389:        if (StringLen < MaxLen)
+        -:  390:        {
+        -:  391:            /* overwrite null with a space to separate the timestamp from the content */
+      510:  392:            Buffer[StringLen] = ' ';
+      510:  393:            ++StringLen;
+        -:  394:
+        -:  395:            /* note that vsnprintf() may return a size larger than the buffer, if it truncates. */
+      510:  396:            PrintLen = vsnprintf(&Buffer[StringLen], BufferSize - StringLen, SpecStringPtr, ap);
+      510:  397:            if (PrintLen > 0)
+        -:  398:            {
+      510:  399:                StringLen += PrintLen;
+        -:  400:            }
+        -:  401:        }
+        -:  402:
+      510:  403:        if (StringLen > MaxLen)
+        -:  404:        {
+        -:  405:            /* the message got truncated */
+        1:  406:            StringLen = MaxLen;
+        -:  407:        }
+        -:  408:
+        -:  409:        /*
+        -:  410:         * Finalize the output string.
+        -:  411:         *
+        -:  412:         * To be consistent when writing to the console, it is important that
+        -:  413:         * every printed string end in a newline - particularly if the console is buffered.
+        -:  414:         *
+        -:  415:         * The caller may or may not have included a newline in the original format
+        -:  416:         * string.  Most callers do, but some do not.
+        -:  417:         *
+        -:  418:         * Strip off all trailing whitespace, and add back a single newline
+        -:  419:         */
+     1529:  420:        while (StringLen > 0 && isspace((int)Buffer[StringLen-1]))
+        -:  421:        {
+      509:  422:            --StringLen;
+        -:  423:        }
+      510:  424:        Buffer[StringLen] = '\n';
+      510:  425:        ++StringLen;
+        -:  426:    }
+        -:  427:
+      510:  428:    if (BufferSize > 0)
+        -:  429:    {
+        -:  430:        /* always output a null terminated string */
+      510:  431:        Buffer[StringLen] = 0;
+        -:  432:    }
+      510:  433:} /* End of CFE_ES_SysLog_vsnprintf() */
+        -:  434:
+        -:  435:/*
+        -:  436: * -----------------------------------------------------------------
+        -:  437: * CFE_ES_SysLog_snprintf() --
+        -:  438: * Obtain a correctly formatted, time stamped message for output to the syslog,
+        -:  439: * with arguments similar to the "snprintf()" C library API call
+        -:  440: * -----------------------------------------------------------------
+        -:  441: */
+       27:  442:void CFE_ES_SysLog_snprintf(char *Buffer, size_t BufferSize, const char *SpecStringPtr, ...)
+        -:  443:{
+        -:  444:    va_list       ArgPtr;
+        -:  445:
+       27:  446:    va_start(ArgPtr, SpecStringPtr);
+       27:  447:    CFE_ES_SysLog_vsnprintf(Buffer, BufferSize, SpecStringPtr, ArgPtr);
+       27:  448:    va_end(ArgPtr);
+       27:  449:} /* End of CFE_ES_SysLog_snprintf() */
+        -:  450:
+        -:  451:/*
+        -:  452: * -----------------------------------------------------------------
+        -:  453: * CFE_ES_SysLogDump() --
+        -:  454: * Writes the contents of the syslog buffer to disk file
+        -:  455: * -----------------------------------------------------------------
+        -:  456: */
+        6:  457:int32 CFE_ES_SysLogDump(const char *Filename)
+        -:  458:{
+        -:  459:    int32   fd;
+        -:  460:    int32   Status;
+        -:  461:    size_t  WritePos;
+        -:  462:    size_t  TotalSize;
+        -:  463:    size_t  LastReqSize;
+        -:  464:    union
+        -:  465:    {
+        -:  466:        CFE_ES_SysLogReadBuffer_t LogData;
+        -:  467:        CFE_FS_Header_t FileHdr;
+        -:  468:    } Buffer;
+        -:  469:
+        6:  470:    fd = OS_creat(Filename, OS_WRITE_ONLY);
+        6:  471:    if(fd < 0)
+        -:  472:    {
+        1:  473:        CFE_EVS_SendEvent(CFE_ES_SYSLOG2_ERR_EID,CFE_EVS_EventType_ERROR,
+        -:  474:                "Error creating file %s, RC = 0x%08X",
+        -:  475:                Filename,(unsigned int)fd);
+        1:  476:        return CFE_ES_FILE_IO_ERR;
+        -:  477:    }/* end if */
+        -:  478:
+        5:  479:    CFE_FS_InitHeader(&Buffer.FileHdr, CFE_ES_SYS_LOG_DESC, CFE_FS_SubType_ES_SYSLOG);
+        -:  480:
+        5:  481:    TotalSize = 0;
+        5:  482:    LastReqSize = sizeof(CFE_FS_Header_t);
+        5:  483:    Status = CFE_FS_WriteHeader(fd, &Buffer.FileHdr);
+        5:  484:    if(Status >= 0)
+        -:  485:    {
+        4:  486:        TotalSize += Status;
+        -:  487:
+        -:  488:        /*
+        -:  489:         * Get a snapshot of the buffer pointers and read the first block of
+        -:  490:         * data while locked - ensuring that nothing additional can be written
+        -:  491:         * into the syslog buffer while getting the first block of log data.
+        -:  492:         */
+        4:  493:        CFE_ES_LockSharedData(__func__, __LINE__);
+        4:  494:        CFE_ES_SysLogReadStart_Unsync(&Buffer.LogData);
+        4:  495:        CFE_ES_SysLogReadData(&Buffer.LogData);
+        4:  496:        CFE_ES_UnlockSharedData(__func__,__LINE__);
+        -:  497:
+       12:  498:        while (Buffer.LogData.BlockSize > 0)
+        -:  499:        {
+        5:  500:            WritePos = 0;
+       14:  501:            while (WritePos < Buffer.LogData.BlockSize)
+        -:  502:            {
+        5:  503:                LastReqSize = Buffer.LogData.BlockSize - WritePos;
+        5:  504:                Status = OS_write(fd, &Buffer.LogData.Data[WritePos], LastReqSize);
+        5:  505:                if(Status <= 0)
+        -:  506:                {
+        1:  507:                    break;
+        -:  508:                }/* end if */
+        -:  509:
+        4:  510:                WritePos += Status;
+        4:  511:                TotalSize += Status;
+        -:  512:            }
+        -:  513:
+        5:  514:            if (Status <= 0)
+        -:  515:            {
+        1:  516:                break;
+        -:  517:            }
+        -:  518:
+        -:  519:            /*
+        -:  520:             * _NOT_ taking the lock for subsequent reads --
+        -:  521:             *
+        -:  522:             * All syslog index values use the local snapshots that were taken earlier.
+        -:  523:             * (The shared memory index values are not referenced on subsequent reads)
+        -:  524:             *
+        -:  525:             * If a new syslog message _does_ get written while this is in progress, it
+        -:  526:             * should be writing to a different part of the syslog buffer anyway, and
+        -:  527:             * probably will not overwrite the data about to be read here.
+        -:  528:             *
+        -:  529:             * There is still a possibility of a "flood" of syslogs coming in which would
+        -:  530:             * potentially overwrite unread data and cause message loss/corruption.  However
+        -:  531:             * taking a lock here will not alleviate that situation - this means that the
+        -:  532:             * buffer simply isn't big enough.
+        -:  533:             */
+        4:  534:            CFE_ES_SysLogReadData(&Buffer.LogData);
+        -:  535:        }
+        -:  536:    }
+        -:  537:
+        5:  538:    OS_close(fd);
+        -:  539:
+        5:  540:    if (Status <= 0)
+        -:  541:    {
+        2:  542:        CFE_ES_FileWriteByteCntErr(Filename, LastReqSize, Status);
+        2:  543:        Status = CFE_ES_FILE_IO_ERR;
+        -:  544:    }
+        -:  545:    else
+        -:  546:    {
+        3:  547:        CFE_EVS_SendEvent(CFE_ES_SYSLOG2_EID, CFE_EVS_EventType_DEBUG,
+        -:  548:                "%s written:Size=%lu,Entries=%u",Filename,
+        -:  549:                (unsigned long)TotalSize,
+        -:  550:                (unsigned int)CFE_ES_TaskData.HkPacket.Payload.SysLogEntries);
+        3:  551:        Status = CFE_SUCCESS;
+        -:  552:    }
+        -:  553:
+        5:  554:    return Status;
+        -:  555:
+        -:  556:} /* End of CFE_ES_SysLogDump() */
+        -:  557:
+        -:  558:
+        -:  559:/* end of file */

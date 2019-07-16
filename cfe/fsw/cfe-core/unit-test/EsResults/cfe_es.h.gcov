@@ -1,0 +1,1593 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/inc/cfe_es.h
+        -:    0:Programs:7
+        -:    1:/*
+        -:    2:**  File: 
+        -:    3:**  cfe_es.h
+        -:    4:**  $Id: cfe_es.h 1.14 2014/08/19 13:32:01GMT-05:00 sstrege Exp  $
+        -:    5:**
+        -:    6:**      Copyright (c) 2004-2006, United States government as represented by the 
+        -:    7:**      administrator of the National Aeronautics Space Administration.  
+        -:    8:**      All rights reserved. This software(cFE) was created at NASA's Goddard 
+        -:    9:**      Space Flight Center pursuant to government contracts.
+        -:   10:**
+        -:   11:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   12:**      distributed and modified only pursuant to the terms of that agreement. 
+        -:   13:**
+        -:   14:**  Purpose:
+        -:   15:**	Unit specification for Executive Services library functions and macros.
+        -:   16:**
+        -:   17:**  References:
+        -:   18:**     Flight Software Branch C Coding Standard Version 1.0a
+        -:   19:**     cFE Flight Software Application Developers Guide
+        -:   20:**
+        -:   21:**	Notes:
+        -:   22:**
+        -:   23:*/
+        -:   24:
+        -:   25:#ifndef _cfe_es_
+        -:   26:#define _cfe_es_
+        -:   27:
+        -:   28:/*
+        -:   29:** Includes 
+        -:   30:*/
+        -:   31:#include "cfe_es_extern_typedefs.h"
+        -:   32:#include "cfe_mission_cfg.h"
+        -:   33:#include "cfe_perfids.h"
+        -:   34:
+        -:   35:/*****************************************************************************/
+        -:   36:
+        -:   37:/*
+        -:   38:** Macro Definitions
+        -:   39:*/
+        -:   40:
+        -:   41:/* 
+        -:   42:** The OS_PRINTF macro may be defined by OSAL to enable
+        -:   43:** printf-style argument checking.  If using a version of OSAL
+        -:   44:** that does not define this then define it as a no-op.
+        -:   45:*/
+        -:   46:#ifndef OS_PRINTF
+        -:   47:#define OS_PRINTF(m,n)
+        -:   48:#endif
+        -:   49:
+        -:   50:#define CFE_ES_DBIT(x) (1L << (x))                                    /* Places a one at bit positions 0 thru 31 */
+        -:   51:#define CFE_ES_DTEST(i,x) (((i) & CFE_ES_DBIT(x)) != 0)               /* TRUE iff bit x of i is set */
+        -:   52:#define CFE_ES_TEST_LONG_MASK(m,s)  (CFE_ES_DTEST(m[(s)/32],(s)%32))  /* Test a bit within an array of 32-bit integers. */
+        -:   53:#define CFE_ES_MAX_MEMPOOL_BLOCK_SIZES     17    /**< Max number of size divisions allowed in a memory pool */
+        -:   54:
+        -:   55:/*
+        -:   56:** Note about reset type and subtypes:
+        -:   57:**
+        -:   58:** These values come from the PSP so the actual definition of these enumerations
+        -:   59:** was moved to the PSP header file <cfe_psp.h>.
+        -:   60:**
+        -:   61:** In the future the Electronic Data sheets (EDS) for PSP/ES
+        -:   62:** will define the exact values to use in telemetry messages.
+        -:   63:*/
+        -:   64:
+        -:   65:/*
+        -:   66:**  Reset types
+        -:   67:*/
+        -:   68:/** \name Reset Type extensions */
+        -:   69:/** \{ */
+        -:   70:#define CFE_ES_APP_RESTART       CFE_PSP_RST_TYPE_MAX       /**< Application only was reset (extend the PSP enumeration here) */
+        -:   71:/** \} */
+        -:   72:
+        -:   73:
+        -:   74:/** \name Critical Data Store Macros */
+        -:   75:/** \{ */
+        -:   76:/** Maximum length allowed for CDS name. <BR>
+        -:   77:** NOTE: "+2" is for NULL Character and "." (i.e. - "AppName.CDSName") */
+        -:   78:#define CFE_ES_CDS_MAX_FULL_NAME_LEN (CFE_MISSION_ES_CDS_MAX_NAME_LENGTH + OS_MAX_API_NAME + 2)
+        -:   79:
+        -:   80:#define CFE_ES_CDS_BAD_HANDLE  (CFE_ES_CDSHandle_t) 0xFFFF
+        -:   81:/** \} */
+        -:   82:
+        -:   83:#define CFE_PLATFORM_ES_APP_KILL_TIMEOUT         5 /**< \brief Number of cycles that ES will wait before killing an app */
+        -:   84:
+        -:   85:#define CFE_ES_NO_MUTEX                 0 /**< \brief Indicates that the memory pool selection will not use a semaphore */
+        -:   86:#define CFE_ES_USE_MUTEX                1 /**< \brief Indicates that the memory pool selection will use a semaphore */
+        -:   87:
+        -:   88:/*
+        -:   89: * To preserve source-code compatibility with existing code,
+        -:   90: * this allows the old enum names to still work.  This should
+        -:   91: * be turned off after the new names are established.
+        -:   92: *  (sed -i -e 's/<old-name>/<new-name>/g' should take care of it)
+        -:   93: *
+        -:   94: * Note about why this is a good idea to do --
+        -:   95: * In the list below there are two values with similar names:
+        -:   96: *   CFE_ES_EXCEPTION, CFE_ES_SYS_EXCEPTION
+        -:   97: *
+        -:   98: * But these map to different values for two different purposes,
+        -:   99: * one is a app status and the other is a reset subtype.  Using the
+        -:  100: * new names makes it much clearer as to which is which, will
+        -:  101: * greatly reduce the chance of getting them mixed up, and make it
+        -:  102: * much more obvious to a code reviewer if the ARE mixed up somewhere.
+        -:  103: */
+        -:  104:#ifndef CFE_OMIT_DEPRECATED_6_6
+        -:  105:
+        -:  106:#define CFE_ES_PROCESSOR_RESET            CFE_PSP_RST_TYPE_PROCESSOR
+        -:  107:#define CFE_ES_POWERON_RESET              CFE_PSP_RST_TYPE_POWERON
+        -:  108:
+        -:  109:#define CFE_ES_POWER_CYCLE                CFE_PSP_RST_SUBTYPE_POWER_CYCLE
+        -:  110:#define CFE_ES_PUSH_BUTTON                CFE_PSP_RST_SUBTYPE_PUSH_BUTTON
+        -:  111:#define CFE_ES_HW_SPECIAL_COMMAND         CFE_PSP_RST_SUBTYPE_HW_SPECIAL_COMMAND
+        -:  112:#define CFE_ES_HW_WATCHDOG                CFE_PSP_RST_SUBTYPE_HW_WATCHDOG
+        -:  113:#define CFE_ES_RESET_COMMAND              CFE_PSP_RST_SUBTYPE_RESET_COMMAND
+        -:  114:#define CFE_ES_EXCEPTION                  CFE_PSP_RST_SUBTYPE_EXCEPTION
+        -:  115:#define CFE_ES_UNDEFINED_RESET            CFE_PSP_RST_SUBTYPE_UNDEFINED_RESET
+        -:  116:#define CFE_ES_HWDEBUG_RESET              CFE_PSP_RST_SUBTYPE_HWDEBUG_RESET
+        -:  117:#define CFE_ES_BANKSWITCH_RESET           CFE_PSP_RST_SUBTYPE_BANKSWITCH_RESET
+        -:  118:
+        -:  119:/*
+        -:  120: * Compatibility Macros for the SystemState enumeration
+        -:  121: */
+        -:  122:#define CFE_ES_SYSTEM_STATE_UNDEFINED       CFE_ES_SystemState_UNDEFINED
+        -:  123:#define CFE_ES_SYSTEM_STATE_EARLY_INIT      CFE_ES_SystemState_EARLY_INIT
+        -:  124:#define CFE_ES_SYSTEM_STATE_CORE_STARTUP    CFE_ES_SystemState_CORE_STARTUP
+        -:  125:#define CFE_ES_SYSTEM_STATE_CORE_READY      CFE_ES_SystemState_CORE_READY
+        -:  126:#define CFE_ES_SYSTEM_STATE_APPS_INIT       CFE_ES_SystemState_APPS_INIT
+        -:  127:#define CFE_ES_SYSTEM_STATE_OPERATIONAL     CFE_ES_SystemState_OPERATIONAL
+        -:  128:#define CFE_ES_SYSTEM_STATE_SHUTDOWN        CFE_ES_SystemState_SHUTDOWN
+        -:  129:
+        -:  130:/*
+        -:  131: * Compatibility Macros for the RunStatus enumeration
+        -:  132: */
+        -:  133:#define CFE_ES_APP_RUN                      CFE_ES_RunStatus_APP_RUN
+        -:  134:#define CFE_ES_APP_EXIT                     CFE_ES_RunStatus_APP_EXIT
+        -:  135:#define CFE_ES_APP_ERROR                    CFE_ES_RunStatus_APP_ERROR
+        -:  136:#define CFE_ES_SYS_EXCEPTION                CFE_ES_RunStatus_SYS_EXCEPTION
+        -:  137:#define CFE_ES_SYS_RESTART                  CFE_ES_RunStatus_SYS_RESTART
+        -:  138:#define CFE_ES_SYS_RELOAD                   CFE_ES_RunStatus_SYS_RELOAD
+        -:  139:#define CFE_ES_SYS_DELETE                   CFE_ES_RunStatus_SYS_DELETE
+        -:  140:#define CFE_ES_CORE_APP_INIT_ERROR          CFE_ES_RunStatus_CORE_APP_INIT_ERROR
+        -:  141:#define CFE_ES_CORE_APP_RUNTIME_ERROR       CFE_ES_RunStatus_CORE_APP_RUNTIME_ERROR
+        -:  142:
+        -:  143:/*
+        -:  144: * Compatibility Macros for the AppState enumeration
+        -:  145: */
+        -:  146:#define CFE_ES_APP_STATE_UNDEFINED          CFE_ES_AppState_UNDEFINED
+        -:  147:#define CFE_ES_APP_STATE_EARLY_INIT         CFE_ES_AppState_EARLY_INIT
+        -:  148:#define CFE_ES_APP_STATE_LATE_INIT          CFE_ES_AppState_LATE_INIT
+        -:  149:#define CFE_ES_APP_STATE_RUNNING            CFE_ES_AppState_RUNNING
+        -:  150:#define CFE_ES_APP_STATE_WAITING            CFE_ES_AppState_WAITING
+        -:  151:#define CFE_ES_APP_STATE_STOPPED            CFE_ES_AppState_STOPPED
+        -:  152:
+        -:  153:/*
+        -:  154: * Compatibility Macros for the AppType enumeration
+        -:  155: */
+        -:  156:#define CFE_ES_APP_TYPE_CORE                CFE_ES_AppType_CORE
+        -:  157:#define CFE_ES_APP_TYPE_EXTERNAL            CFE_ES_AppType_EXTERNAL
+        -:  158:
+        -:  159:/*
+        -:  160: * Compatibility Macros for the LogMode enumeration
+        -:  161: */
+        -:  162:#define CFE_ES_LOG_DISCARD                  CFE_ES_LogMode_DISCARD
+        -:  163:#define CFE_ES_LOG_OVERWRITE                CFE_ES_LogMode_OVERWRITE
+        -:  164:
+        -:  165:/*
+        -:  166: * Compatibility Macros for the ExceptionAction enumeration
+        -:  167: */
+        -:  168:#define CFE_ES_APP_EXCEPTION_RESTART_APP    CFE_ES_ExceptionAction_RESTART_APP
+        -:  169:#define CFE_ES_APP_EXCEPTION_PROC_RESTART   CFE_ES_ExceptionAction_PROC_RESTART
+        -:  170:
+        -:  171:/*
+        -:  172: * Compatibility Macros for the LogEntryType enumeration
+        -:  173: */
+        -:  174:#define CFE_ES_CORE_LOG_ENTRY               CFE_ES_LogEntryType_CORE
+        -:  175:#define CFE_ES_APPLICATION_LOG_ENTRY        CFE_ES_LogEntryType_APPLICATION
+        -:  176:
+        -:  177:
+        -:  178:#endif
+        -:  179:
+        -:  180:/*****************************************************************************/
+        -:  181:/*
+        -:  182:** Type Definitions
+        -:  183:*/
+        -:  184:
+        -:  185:/*
+        -:  186:** Memory Handle type
+        -:  187:*/
+        -:  188:typedef cpuaddr CFE_ES_MemHandle_t;  /**< \brief Data type used to hold Handles of Memory Pools created via CFE_ES_PoolCreate and CFE_ES_PoolCreateNoSem */
+        -:  189:
+        -:  190:/*
+        -:  191:** 
+        -:  192:** CFE_ES_AppInfo_t is a structure that is used to provide
+        -:  193:** information about an app. It is primarily used for the QueryOne and
+        -:  194:** QueryAll Commands.
+        -:  195:**
+        -:  196:*/
+        -:  197:typedef struct
+        -:  198:{
+        -:  199:   uint32   AppId;                          /**< \cfetlmmnemonic \ES_APP_ID
+        -:  200:                                                 \brief Application ID for this Application */
+        -:  201:   uint32   Type;                           /**< \cfetlmmnemonic \ES_APPTYPE
+        -:  202:                                                 \brief The type of App: CORE or EXTERNAL */
+        -:  203:
+        -:  204:   char     Name[OS_MAX_API_NAME];          /**< \cfetlmmnemonic \ES_APPNAME
+        -:  205:                                                 \brief The Registered Name of the Application */
+        -:  206:   char     EntryPoint[OS_MAX_API_NAME];    /**< \cfetlmmnemonic \ES_APPENTRYPT
+        -:  207:                                                 \brief The Entry Point label for the Application */
+        -:  208:   char     FileName[OS_MAX_PATH_LEN];      /**< \cfetlmmnemonic \ES_APPFILENAME
+        -:  209:                                                 \brief The Filename of the file containing the Application */
+        -:  210:
+        -:  211:   uint32   StackSize;                      /**< \cfetlmmnemonic \ES_STACKSIZE
+        -:  212:                                                 \brief The Stack Size of the Application */
+        -:  213:   uint32   ModuleId;                       /**< \cfetlmmnemonic \ES_MODULEID
+        -:  214:                                                 \brief The ID of the Loadable Module for the Application */
+        -:  215:   uint32   AddressesAreValid;              /**< \cfetlmmnemonic \ES_ADDRVALID
+        -:  216:                                                 \brief Indicates that the Code, Data, and BSS addresses/sizes are valid */
+        -:  217:   uint32   CodeAddress;                    /**< \cfetlmmnemonic \ES_CODEADDR
+        -:  218:                                                 \brief The Address of the Application Code Segment*/
+        -:  219:   uint32   CodeSize;                       /**< \cfetlmmnemonic \ES_CODESIZE
+        -:  220:                                                 \brief The Code Size of the Application */
+        -:  221:   uint32   DataAddress;                    /**< \cfetlmmnemonic \ES_DATAADDR
+        -:  222:                                                 \brief The Address of the Application Data Segment*/
+        -:  223:   uint32   DataSize;                       /**< \cfetlmmnemonic \ES_DATASIZE
+        -:  224:                                                 \brief The Data Size of the Application */
+        -:  225:   uint32   BSSAddress;                     /**< \cfetlmmnemonic \ES_BSSADDR
+        -:  226:                                                 \brief The Address of the Application BSS Segment*/
+        -:  227:   uint32   BSSSize;                        /**< \cfetlmmnemonic \ES_BSSSIZE
+        -:  228:                                                  \brief The BSS Size of the Application */
+        -:  229:   uint32   StartAddress;                   /**< \cfetlmmnemonic \ES_STARTADDR
+        -:  230:                                                 \brief The Start Address of the Application */
+        -:  231:   uint16   ExceptionAction;                /**< \cfetlmmnemonic \ES_EXCEPTNACTN
+        -:  232:                                                 \brief What should occur if Application has an exception
+        -:  233:                                                 (Restart Application OR Restart Processor) */
+        -:  234:   uint16   Priority;                       /**< \cfetlmmnemonic \ES_PRIORITY
+        -:  235:                                                 \brief The Priority of the Application */
+        -:  236:   uint32   MainTaskId;                     /**< \cfetlmmnemonic \ES_MAINTASKID
+        -:  237:                                                 \brief The Application's Main Task ID */
+        -:  238:   uint32   ExecutionCounter;               /**< \cfetlmmnemonic \ES_MAINTASKEXECNT
+        -:  239:                                                 \brief The Application's Main Task Execution Counter */
+        -:  240:   char     MainTaskName[OS_MAX_API_NAME];  /**< \cfetlmmnemonic \ES_MAINTASKNAME
+        -:  241:                                                 \brief The Application's Main Task ID */
+        -:  242:   uint32   NumOfChildTasks;                /**< \cfetlmmnemonic \ES_CHILDTASKS
+        -:  243:                                                 \brief Number of Child tasks for an App */
+        -:  244:
+        -:  245:} CFE_ES_AppInfo_t;
+        -:  246:
+        -:  247:/*
+        -:  248:** Task Info Type
+        -:  249:*/
+        -:  250:typedef struct
+        -:  251:{
+        -:  252:   uint32   TaskId;                    /**< \brief Task Id */
+        -:  253:   uint32   ExecutionCounter;          /**K \brief Task Execution Counter */
+        -:  254:   uint8    TaskName[OS_MAX_API_NAME]; /**< \brief Task Name */
+        -:  255:   uint32   AppId;                     /**< \brief Parent Application ID */
+        -:  256:   uint8    AppName[OS_MAX_API_NAME];  /**< \brief Parent Application Name */
+        -:  257:
+        -:  258:} CFE_ES_TaskInfo_t;
+        -:  259:
+        -:  260:/*
+        -:  261:** Memory Pool Statistics data type
+        -:  262:*/
+        -:  263:typedef struct
+        -:  264:{
+        -:  265:    uint32  BlockSize;               /**< \brief Number of bytes in each of these blocks */
+        -:  266:    uint32  NumCreated;              /**< \brief Number of Memory Blocks of this size created */
+        -:  267:    uint32  NumFree;                 /**< \brief Number of Memory Blocks of this size that are free */
+        -:  268:} CFE_ES_BlockStats_t;
+        -:  269:
+        -:  270:typedef struct
+        -:  271:{
+        -:  272:    uint32                PoolSize;                /**< \cfetlmmnemonic \ES_POOLSIZE
+        -:  273:                                                        \brief  Size of Memory Pool (in bytes) */
+        -:  274:    uint32                NumBlocksRequested;      /**< \cfetlmmnemonic \ES_BLKSREQ
+        -:  275:                                                        \brief Number of times a memory block has been allocated */
+        -:  276:    uint32                CheckErrCtr;             /**< \cfetlmmnemonic \ES_BLKERRCTR
+        -:  277:                                                        \brief Number of errors detected when freeing a memory block */
+        -:  278:    uint32                NumFreeBytes;            /**< \cfetlmmnemonic \ES_FREEBYTES
+        -:  279:                                                        \brief Number of bytes never allocated to a block */
+        -:  280:    CFE_ES_BlockStats_t   BlockStats[CFE_ES_MAX_MEMPOOL_BLOCK_SIZES]; /**< \cfetlmmnemonic \ES_BLKSTATS
+        -:  281:                                                                           \brief Contains stats on each block size */
+        -:  282:} CFE_ES_MemPoolStats_t;
+        -:  283:
+        -:  284:/*
+        -:  285:** CDS Handle type
+        -:  286:*/
+        -:  287:typedef cpuaddr CFE_ES_CDSHandle_t;    /**< \brief Data type used to hold Handles of Critical Data Stores. See CFE_ES_RegisterCDS */
+        -:  288:
+        -:  289:typedef struct
+        -:  290:{
+        -:  291:    CFE_ES_CDSHandle_t    Handle;          /**< \brief Handle of CDS */
+        -:  292:    uint32                Size;            /**< \brief Size, in bytes, of the CDS memory block */
+        -:  293:    boolean               Table;           /**< \brief Flag that indicates whether CDS contains a Critical Table */
+        -:  294:    char                  Name[CFE_ES_CDS_MAX_FULL_NAME_LEN]; /**< \brief Processor Unique Name of CDS */
+        -:  295:    uint8                 ByteAlignSpare1; /**< \brief Spare byte to insure structure size is multiple of 4 bytes */
+        -:  296:} CFE_ES_CDSRegDumpRec_t;
+        -:  297:
+        -:  298:/*
+        -:  299:** Child Task Main Function Prototype
+        -:  300:*/
+        -:  301:typedef void (*CFE_ES_ChildTaskMainFuncPtr_t)(void); /**< \brief Required Prototype of Child Task Main Functions */
+        -:  302:typedef int32 (*CFE_ES_LibraryEntryFuncPtr_t)(uint32 LibId); /**< \brief Required Prototype of Library Initialization Functions */
+        -:  303:
+        -:  304:typedef enum
+        -:  305:{
+        -:  306:    CFE_ES_STATICENTRYTYPE_INVALID      = 0,
+        -:  307:    CFE_ES_STATICENTRYTYPE_FIRST_VALID  = 2000,
+        -:  308:    CFE_ES_STATICENTRYTYPE_APPLICATION,
+        -:  309:    CFE_ES_STATICENTRYTYPE_LIBRARY,
+        -:  310:    CFE_ES_STATICENTRYTYPE_MAX
+        -:  311:} CFE_ES_StaticEntryType_t;
+        -:  312:
+        -:  313:/*
+        -:  314:** API Structure for statically linked CFS Applications
+        -:  315:*/
+        -:  316:typedef const struct
+        -:  317:{
+        -:  318:    CFE_ES_StaticEntryType_t EntryType;
+        -:  319:    union
+        -:  320:    {
+        -:  321:        CFE_ES_ChildTaskMainFuncPtr_t AppEntryFunc;     /**< \brief Entry point for Application */
+        -:  322:        CFE_ES_LibraryEntryFuncPtr_t LibInitFunc;       /**< \brief Initialization function for Library */
+        -:  323:        cpuaddr EntryFuncAddr;
+        -:  324:    } Ptrs;
+        -:  325:    uint32  Priority;
+        -:  326:    uint32  StackSize;
+        -:  327:} CFE_ES_AppStaticModuleApi_t;
+        -:  328:
+        -:  329:#ifdef CFS_STATIC_MODULE
+        -:  330:
+        -:  331:#define CFS_MODULE_DECLARE_APP(name,pri,stack)              \
+        -:  332:    void name##_Main(void);                                 \
+        -:  333:    CFE_ES_AppStaticModuleApi_t CFS_##name##_API =          \
+        -:  334:    {                                                       \
+        -:  335:        .EntryType = CFE_ES_STATICENTRYTYPE_APPLICATION,    \
+        -:  336:        .Ptrs.AppEntryFunc = name##_Main,                   \
+        -:  337:        .Priority = pri,                                    \
+        -:  338:        .StackSize = stack,                                 \
+        -:  339:    }
+        -:  340:
+        -:  341:#define CFS_MODULE_DECLARE_LIB(name)                        \
+        -:  342:    int32 name##_Init(void);                                \
+        -:  343:    CFE_ES_AppStaticModuleApi_t CFS_##name##_API =          \
+        -:  344:    {                                                       \
+        -:  345:        .EntryType = CFE_ES_STATICENTRYTYPE_LIBRARY,        \
+        -:  346:        .Ptrs.LibInitFunc = name##_Init,                    \
+        -:  347:    }
+        -:  348:#else
+        -:  349:#define CFS_MODULE_DECLARE_APP(name,pri,stack)
+        -:  350:#define CFS_MODULE_DECLARE_LIB(name)
+        -:  351:#endif
+        -:  352:
+        -:  353:/**
+        -:  354: * Union that can be used for minimum memory alignment of ES memory pools on the target.
+        -:  355: * It contains the longest native data types such that the alignment of this structure
+        -:  356: * should reflect the largest possible alignment requirements for any data on this processor.
+        -:  357: */
+        -:  358:typedef union
+        -:  359:{
+        -:  360:    void *Ptr;
+        -:  361:    /* note -- native types (int/double) are intentional here */
+        -:  362:    long long int LongInt;
+        -:  363:    long double LongDouble;
+        -:  364:} CFE_ES_PoolAlign_t;
+        -:  365:
+        -:  366:/**
+        -:  367: * A macro to help instantiate static memory pools that are correctly aligned.
+        -:  368: * This resolves to a union type that contains a member called "Data" that will
+        -:  369: * be correctly aligned to be a memory pool and sized according to the argument.
+        -:  370: */
+        -:  371:#define CFE_ES_STATIC_POOL_TYPE(size)    union { CFE_ES_PoolAlign_t Align; uint8 Data[size]; }
+        -:  372:
+        -:  373:/*****************************************************************************/
+        -:  374:/*
+        -:  375:** Exported Functions
+        -:  376:*/
+        -:  377:
+        -:  378:/*****************************************************************************/
+        -:  379:
+        -:  380:#if !defined(OSAL_OPAQUE_OBJECT_IDS)
+        -:  381:/*
+        -:  382:** \brief Compatibility wrapper for older versions of OSAL
+        -:  383:**
+        -:  384:** \par Description
+        -:  385:**   In future versions of OSAL the task/object ID values might not be zero based
+        -:  386:**   If that is the case then the OSAL must also define a function to convert back
+        -:  387:**   to zero-based numbers such that the value can be used as an array index.
+        -:  388:**
+        -:  389:**   When using an existing/older version of OSAL, this inline function is defined
+        -:  390:**   to mimic this call for backward compatibility.  It just passes through the same
+        -:  391:**   value without modification.
+        -:  392:**
+        -:  393:** \param[in]  ObjectId     The object ID from OSAL
+        -:  394:** \param[out] ArrayIndex   A zero-based value suitable for use as an array index
+        -:  395:** \returns    OS_SUCCESS (a real version might return an error code).
+        -:  396:*/
+       45:  397:static inline int32 OS_ConvertToArrayIndex(uint32 ObjectId, uint32 *ArrayIndex)
+        -:  398:{
+       45:  399:   *ArrayIndex = ObjectId;
+       45:  400:   return OS_SUCCESS;
+        -:  401:}
+        -:  402:#endif
+        -:  403:
+        -:  404:
+        -:  405:
+        -:  406:/*****************************************************************************/
+        -:  407:/**
+        -:  408:** \brief cFE Main Entry Point used by Board Support Package to start cFE
+        -:  409:**
+        -:  410:** \par Description
+        -:  411:**        cFE main entry point. This is the entry point into the cFE software.
+        -:  412:**        It is called only by the Board Support Package software.
+        -:  413:**
+        -:  414:** \par Assumptions, External Events, and Notes:
+        -:  415:**          None
+        -:  416:**
+        -:  417:** \param[in]  StartType     Identifies whether this was a #CFE_PSP_RST_TYPE_POWERON or #CFE_PSP_RST_TYPE_PROCESSOR.
+        -:  418:**
+        -:  419:** \param[in]  StartSubtype  Specifies, in more detail, what caused the \c StartType identified above.
+        -:  420:**                           See #CFE_ES_POWER_CYCLE for possible examples.
+        -:  421:**
+        -:  422:** \param[in]  ModeId        Identifies the source of the Boot as determined by the BSP.
+        -:  423:**
+        -:  424:** \param[in]  StartFilePath Identifies the startup file to use to initialize the cFE apps.
+        -:  425:**
+        -:  426:** \sa #CFE_ES_ResetCFE
+        -:  427:**
+        -:  428:******************************************************************************/
+        -:  429:void CFE_ES_Main(uint32 StartType, uint32 StartSubtype, uint32 ModeId , const char *StartFilePath );
+        -:  430:
+        -:  431:/*****************************************************************************/
+        -:  432:/**
+        -:  433:** \brief Return the most recent Reset Type
+        -:  434:**
+        -:  435:** \par Description
+        -:  436:**        Provides the caller with codes that identifies the type of Reset
+        -:  437:**        the processor most recently underwent.  The caller can also obtain
+        -:  438:**        information on what caused the reset by supplying a pointer to a
+        -:  439:**        variable that will be filled with the Reset Sub-Type.
+        -:  440:**
+        -:  441:** \par Assumptions, External Events, and Notes:
+        -:  442:**          None
+        -:  443:**
+        -:  444:** \param[in]   ResetSubtypePtr    Pointer to \c uint32 type variable in which the Reset Sub-Type will be stored.
+        -:  445:**                                 The caller can set this pointer to NULL if the Sub-Type is of no interest.
+        -:  446:**
+        -:  447:** \param[out]  *ResetSubtypePtr   If the provided pointer was not \c NULL, the Reset Sub-Type is stored at the given address.
+        -:  448:**                                 For a list of possible Sub-Type values, see \link #CFE_ES_POWER_CYCLE "Reset Sub-Types" \endlink.
+        -:  449:**
+        -:  450:** \returns
+        -:  451:** \retcode #CFE_PSP_RST_TYPE_POWERON   \retdesc \copydoc CFE_PSP_RST_TYPE_POWERON    \endcode
+        -:  452:** \retcode #CFE_PSP_RST_TYPE_PROCESSOR \retdesc \copydoc CFE_PSP_RST_TYPE_PROCESSOR  \endcode
+        -:  453:** \endreturns
+        -:  454:**
+        -:  455:** \sa #CFE_ES_GetAppID, #CFE_ES_GetAppIDByName, #CFE_ES_GetAppName, #CFE_ES_GetTaskInfo
+        -:  456:**
+        -:  457:******************************************************************************/
+        -:  458:int32 CFE_ES_GetResetType(uint32 *ResetSubtypePtr);
+        -:  459:
+        -:  460:/*****************************************************************************/
+        -:  461:/**
+        -:  462:** \brief Reset the cFE Core and all cFE Applications
+        -:  463:**
+        -:  464:** \par Description
+        -:  465:**        This API causes an immediate reset of the cFE Kernel and all cFE Applications.
+        -:  466:**        The caller can specify whether the reset should clear all memory (#CFE_PSP_RST_TYPE_POWERON)
+        -:  467:**        or try to retain volatile memory areas (#CFE_PSP_RST_TYPE_PROCESSOR).
+        -:  468:**
+        -:  469:** \par Assumptions, External Events, and Notes:
+        -:  470:**          None
+        -:  471:**
+        -:  472:** \param[in]  ResetType    Identifies the type of reset desired.  Allowable settings are:
+        -:  473:**                          \arg #CFE_PSP_RST_TYPE_POWERON     - Causes all memory to be cleared 
+        -:  474:**                          \arg #CFE_PSP_RST_TYPE_PROCESSOR   - Attempts to retain volatile disk, critical data store and user reserved memory. 
+        -:  475:**
+        -:  476:** \returns
+        -:  477:** \retcode #CFE_ES_BAD_ARGUMENT    \retdesc \copydoc CFE_ES_BAD_ARGUMENT     \endcode
+        -:  478:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  479:** \endreturns
+        -:  480:**
+        -:  481:** \sa #CFE_ES_Main
+        -:  482:**
+        -:  483:******************************************************************************/
+        -:  484:int32  CFE_ES_ResetCFE(uint32 ResetType);
+        -:  485:
+        -:  486:/*****************************************************************************/
+        -:  487:/**
+        -:  488:** \brief Restart a single cFE Application
+        -:  489:**
+        -:  490:** \par Description
+        -:  491:**        This API causes a cFE Application to be stopped and restarted.
+        -:  492:**
+        -:  493:** \par Assumptions, External Events, and Notes:
+        -:  494:**          None
+        -:  495:**
+        -:  496:** \param[in]  AppID       Identifies the application to be reset.
+        -:  497:**
+        -:  498:** \returns
+        -:  499:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  500:** \endreturns
+        -:  501:**
+        -:  502:** \sa #CFE_ES_ReloadApp, #CFE_ES_DeleteApp
+        -:  503:**
+        -:  504:******************************************************************************/
+        -:  505:int32 CFE_ES_RestartApp(uint32 AppID);
+        -:  506:
+        -:  507:/*****************************************************************************/
+        -:  508:/**
+        -:  509:** \brief Reload a single cFE Application
+        -:  510:**
+        -:  511:** \par Description
+        -:  512:**        This API causes a cFE Application to be stopped and restarted from
+        -:  513:**        the specified file.
+        -:  514:**
+        -:  515:** \par Assumptions, External Events, and Notes:
+        -:  516:**        The specified application will be deleted before it is reloaded from the
+        -:  517:**        specified file.  In the event that an application cannot be reloaded due to
+        -:  518:**        a corrupt file, the application may no longer be reloaded when given a valid
+        -:  519:**        load file (it has been deleted and no longer exists).  To recover, the
+        -:  520:**        application may be restarted by loading the application via the ES_STARTAPP
+        -:  521:**        command (#CFE_ES_START_APP_CC).
+        -:  522:**
+        -:  523:** \param[in]  AppID       Identifies the application to be reset.
+        -:  524:**
+        -:  525:** \param[in]  AppFileName Identifies the new file to start.
+        -:  526:**
+        -:  527:** \returns
+        -:  528:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  529:** \endreturns
+        -:  530:**
+        -:  531:** \sa #CFE_ES_RestartApp, #CFE_ES_DeleteApp, #CFE_ES_START_APP_CC
+        -:  532:**
+        -:  533:******************************************************************************/
+        -:  534:int32 CFE_ES_ReloadApp(uint32 AppID, const char *AppFileName);
+        -:  535:
+        -:  536:/*****************************************************************************/
+        -:  537:/**
+        -:  538:** \brief Delete a cFE Application
+        -:  539:**
+        -:  540:** \par Description
+        -:  541:**        This API causes a cFE Application to be stopped deleted.
+        -:  542:**
+        -:  543:** \par Assumptions, External Events, and Notes:
+        -:  544:**          None
+        -:  545:**
+        -:  546:** \param[in]  AppID       Identifies the application to be reset.
+        -:  547:**
+        -:  548:** \returns
+        -:  549:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  550:** \endreturns
+        -:  551:**
+        -:  552:** \sa #CFE_ES_RestartApp, #CFE_ES_ReloadApp
+        -:  553:**
+        -:  554:******************************************************************************/
+        -:  555:int32 CFE_ES_DeleteApp(uint32 AppID);
+        -:  556:
+        -:  557:/*****************************************************************************/
+        -:  558:/**
+        -:  559:** \brief Exit a cFE Application
+        -:  560:**
+        -:  561:** \par Description
+        -:  562:**        This API is the "Exit Point" for the cFE application
+        -:  563:**
+        -:  564:** \par Assumptions, External Events, and Notes:
+        -:  565:**          None
+        -:  566:**
+        -:  567:** \param[in]  ExitStatus     .
+        -:  568:**
+        -:  569:** \returns
+        -:  570:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  571:** \endreturns
+        -:  572:**
+        -:  573:** \sa #CFE_ES_RunLoop, #CFE_ES_RegisterApp
+        -:  574:**
+        -:  575:******************************************************************************/
+        -:  576:void CFE_ES_ExitApp(uint32 ExitStatus);
+        -:  577:
+        -:  578:
+        -:  579:/*****************************************************************************/
+        -:  580:/**
+        -:  581:** \brief Check for Exit, Restart, or Reload commands
+        -:  582:**
+        -:  583:** \par Description
+        -:  584:**        This is the API that allows an app to check for exit requests from
+        -:  585:**         the system.
+        -:  586:**
+        -:  587:** \par Assumptions, External Events, and Notes:
+        -:  588:**          None
+        -:  589:**
+        -:  590:** \param[in]  ExitStatus   A pointer to a variable containing the Application's
+        -:  591:**                          desired run status.  Acceptable values are:
+        -:  592:**                          \arg #CFE_ES_RunStatus_APP_RUN - \copydoc CFE_ES_RunStatus_APP_RUN
+        -:  593:**                          \arg #CFE_ES_RunStatus_APP_EXIT - \copydoc CFE_ES_RunStatus_APP_EXIT
+        -:  594:**                          \arg #CFE_ES_RunStatus_APP_ERROR - \copydoc CFE_ES_RunStatus_APP_ERROR
+        -:  595:**
+        -:  596:** \returns
+        -:  597:** \retcode #TRUE  \retdesc The application should continue executing \endcode
+        -:  598:** \retcode #FALSE \retdesc The application should terminate itself \endcode
+        -:  599:** \endreturns
+        -:  600:**
+        -:  601:** \sa #CFE_ES_ExitApp, #CFE_ES_RegisterApp
+        -:  602:**
+        -:  603:******************************************************************************/
+        -:  604:int32 CFE_ES_RunLoop(uint32 *ExitStatus);
+        -:  605:
+        -:  606:/*****************************************************************************/
+        -:  607:/**
+        -:  608:** \brief Allow an Application to Wait for a minimum global system state
+        -:  609:**
+        -:  610:** \par Description
+        -:  611:**        This is the API that allows an app to wait for the rest of the apps
+        -:  612:**        to complete a given stage of initialization before continuing.
+        -:  613:**
+        -:  614:**        This gives finer grained control than the "CFE_ES_WaitForStartupSync()" call.
+        -:  615:**
+        -:  616:** \par Assumptions, External Events, and Notes:
+        -:  617:**        This API assumes that the caller has also been initialized sufficiently
+        -:  618:**        to satisfy the global system state it is waiting for, and the apps own
+        -:  619:**        state will be updated accordingly.
+        -:  620:**
+        -:  621:** \param[in]  TimeOutMilliseconds   The timeout value in Milliseconds.
+        -:  622:**                                   This parameter must be at least 1000. Lower values
+        -:  623:**                                   will be rounded up. There is not an option to
+        -:  624:**                                   wait indefinitely to avoid hanging a critical
+        -:  625:**                                   application because a non-critical app did not start.
+        -:  626:**
+        -:  627:** \returns
+        -:  628:**      CFE_SUCCESS if state was successfully achieved
+        -:  629:**      CFE_ES_OPERATION_TIMED_OUT if the timeout was reached
+        -:  630:**      (or other defined error code in case of error)
+        -:  631:**
+        -:  632:** \sa #CFE_ES_RunLoop
+        -:  633:**
+        -:  634:******************************************************************************/
+        -:  635:int32 CFE_ES_WaitForSystemState(uint32 MinSystemState, uint32 TimeOutMilliseconds);
+        -:  636:
+        -:  637:/*****************************************************************************/
+        -:  638:/**
+        -:  639:** \brief Allow an Application to Wait for the "OPERATIONAL" global system state
+        -:  640:**
+        -:  641:** \par Description
+        -:  642:**        This is the API that allows an app to wait for the rest of the apps
+        -:  643:**        to complete their entire initialization before continuing. It is most
+        -:  644:**        useful for applications such as Health and Safety or the Scheduler that need
+        -:  645:**        to wait until applications exist and are running before sending out
+        -:  646:**        packets to them.
+        -:  647:**
+        -:  648:**        This is a specialized wrapper for CFE_ES_WaitForSystemState() for compatibility
+        -:  649:**        with applications using this API.
+        -:  650:**
+        -:  651:** \par Assumptions, External Events, and Notes:
+        -:  652:**          This API should only be called as the last item of an Apps initialization.
+        -:  653:**          In addition, this API should only be called by an App that is started
+        -:  654:**          from the ES Startup file. It should not be used by an App that is 
+        -:  655:**          started after the system is running. ( Although it will cause no harm )
+        -:  656:**
+        -:  657:** \param[in]  TimeOutMilliseconds   The timeout value in Milliseconds.
+        -:  658:**                                   This parameter must be at least 1000. Lower values
+        -:  659:**                                   will be rounded up. There is not an option to 
+        -:  660:**                                   wait indefinitely to avoid hanging a critical
+        -:  661:**                                   application because a non-critical app did not start. 
+        -:  662:**
+        -:  663:**
+        -:  664:** \sa #CFE_ES_RunLoop
+        -:  665:**
+        -:  666:******************************************************************************/
+        -:  667:void CFE_ES_WaitForStartupSync(uint32 TimeOutMilliseconds);
+        -:  668:
+        -:  669:
+        -:  670:/*
+        -:  671:** Application Management functions
+        -:  672:*/
+        -:  673:
+        -:  674:/*****************************************************************************/
+        -:  675:/**
+        -:  676:** \brief Registers a cFE Application with the Executive Services
+        -:  677:**
+        -:  678:** \par Description
+        -:  679:**        This API registers the calling Application with the cFE.
+        -:  680:**
+        -:  681:** \par Assumptions, External Events, and Notes:
+        -:  682:**        NOTE: This function \b MUST be called before any other cFE API functions are called.
+        -:  683:**
+        -:  684:** \returns
+        -:  685:** \retstmt Return codes from #OS_TaskRegister          \endcode
+        -:  686:** \retstmt Return codes from #OS_BinSemTake            \endcode
+        -:  687:** \retcode #CFE_SUCCESS \retdesc \copydoc CFE_SUCCESS  \endcode
+        -:  688:** \endreturns
+        -:  689:**
+        -:  690:** \sa #CFE_ES_ExitApp, #CFE_ES_RunLoop
+        -:  691:**
+        -:  692:******************************************************************************/
+        -:  693:int32 CFE_ES_RegisterApp(void);
+        -:  694:
+        -:  695:/*****************************************************************************/
+        -:  696:/**
+        -:  697:** \brief Get an Application ID for the calling Application
+        -:  698:**
+        -:  699:** \par Description
+        -:  700:**        This routine retrieves the cFE Application ID for the calling Application.  
+        -:  701:**
+        -:  702:** \par Assumptions, External Events, and Notes:
+        -:  703:**        NOTE: \b All tasks associated with the Application would return the same Application ID.
+        -:  704:**
+        -:  705:** \param[in]   AppIdPtr       Pointer to variable that is to receive the Application's ID.
+        -:  706:**
+        -:  707:** \param[out]  *AppIdPtr      Application ID of the calling Application.
+        -:  708:**
+        -:  709:** \returns
+        -:  710:** \retcode #CFE_SUCCESS       \retdesc \copydoc CFE_SUCCESS        \endcode
+        -:  711:** \retcode #CFE_ES_ERR_APPID  \retdesc \copydoc CFE_ES_ERR_APPID   \endcode
+        -:  712:** \retcode #CFE_ES_ERR_BUFFER \retdesc \copydoc CFE_ES_ERR_BUFFER  \endcode
+        -:  713:** \endreturns
+        -:  714:**
+        -:  715:** \sa #CFE_ES_GetResetType, #CFE_ES_GetAppIDByName, #CFE_ES_GetAppName, #CFE_ES_GetTaskInfo
+        -:  716:**
+        -:  717:******************************************************************************/
+        -:  718:int32 CFE_ES_GetAppID(uint32 *AppIdPtr);
+        -:  719:
+        -:  720:/*****************************************************************************/
+        -:  721:/**
+        -:  722:** \brief Get an Application ID associated with a specified Application name
+        -:  723:**
+        -:  724:** \par Description
+        -:  725:**        This routine retrieves the cFE Application ID associated with a
+        -:  726:**        specified Application name.  
+        -:  727:**
+        -:  728:** \par Assumptions, External Events, and Notes:
+        -:  729:**        None
+        -:  730:**
+        -:  731:** \param[in]   AppIdPtr       Pointer to variable that is to receive the Application's ID.
+        -:  732:**
+        -:  733:** \param[in]   AppName        Pointer to null terminated character string containing an Application name.
+        -:  734:**
+        -:  735:** \param[out]  *AppIdPtr      Application ID of the calling Application.
+        -:  736:**
+        -:  737:** \returns
+        -:  738:** \retcode #CFE_SUCCESS         \retdesc \copydoc CFE_SUCCESS         \endcode
+        -:  739:** \retcode #CFE_ES_ERR_APPNAME  \retdesc \copydoc CFE_ES_ERR_APPNAME  \endcode
+        -:  740:** \retcode #CFE_ES_ERR_BUFFER   \retdesc \copydoc CFE_ES_ERR_BUFFER   \endcode
+        -:  741:** \endreturns
+        -:  742:**
+        -:  743:** \sa #CFE_ES_GetResetType, #CFE_ES_GetAppID, #CFE_ES_GetAppName, #CFE_ES_GetTaskInfo
+        -:  744:**
+        -:  745:******************************************************************************/
+        -:  746:int32 CFE_ES_GetAppIDByName(uint32 *AppIdPtr, const char *AppName);
+        -:  747:
+        -:  748:/*****************************************************************************/
+        -:  749:/**
+        -:  750:** \brief Get an Application name for a specified Application ID
+        -:  751:**
+        -:  752:** \par Description
+        -:  753:**        This routine retrieves the cFE Application name associated with a
+        -:  754:**        specified Application ID.
+        -:  755:**
+        -:  756:** \par Assumptions, External Events, and Notes:
+        -:  757:**        In the case of a failure (#CFE_ES_ERR_APPID), an empty string is returned.  #CFE_ES_ERR_APPID
+        -:  758:**        will be returned if the specified Application ID (AppId) is invalid or not in use.
+        -:  759:**
+        -:  760:** \param[in]   AppName       Pointer to a character array of at least \c BufferLength in size that will
+        -:  761:**                            be filled with the appropriate Application name.
+        -:  762:**
+        -:  763:** \param[in]   AppId         Application ID of Application whose name is being requested.
+        -:  764:**
+        -:  765:** \param[in]   BufferLength  The maximum number of characters, including the null terminator, that can be put
+        -:  766:**                            into the \c AppName buffer.  This routine will truncate the name to this length,
+        -:  767:**                            if necessary.
+        -:  768:**
+        -:  769:** \param[out]  *AppName      Null terminated Application name of the Application associated with the 
+        -:  770:**                            specified Application ID.
+        -:  771:**
+        -:  772:** \returns
+        -:  773:** \retcode #CFE_SUCCESS         \retdesc \copydoc CFE_SUCCESS        \endcode
+        -:  774:** \retcode #CFE_ES_ERR_APPID    \retdesc \copydoc CFE_ES_ERR_APPID   \endcode
+        -:  775:** \endreturns
+        -:  776:**
+        -:  777:** \sa #CFE_ES_GetResetType, #CFE_ES_GetAppID, #CFE_ES_GetAppIDByName, #CFE_ES_GetTaskInfo
+        -:  778:**
+        -:  779:******************************************************************************/
+        -:  780:int32 CFE_ES_GetAppName(char *AppName, uint32 AppId, uint32 BufferLength);
+        -:  781:
+        -:  782:/*****************************************************************************/
+        -:  783:/**
+        -:  784:** \brief Get Application Information given a specified App ID
+        -:  785:**
+        -:  786:** \par Description
+        -:  787:**        This routine retrieves the information about an App associated with a
+        -:  788:**        specified App ID. The information includes all of the information ES 
+        -:  789:**        maintains for an application ( documented in the CFE_ES_AppInfo_t type ) 
+        -:  790:**
+        -:  791:** \par Assumptions, External Events, and Notes:
+        -:  792:**        None
+        -:  793:**
+        -:  794:** \param[in]   AppInfo      Pointer to a \c CFE_ES_AppInfo_t structure that holds the specific 
+        -:  795:**                            Application information.
+        -:  796:**
+        -:  797:** \param[in]   AppId        Application ID of Application whose name is being requested.
+        -:  798:**
+        -:  799:** \param[out]  *AppInfo     Filled out \c CFE_ES_AppInfo_t structure containing the 
+        -:  800:**                            App Name, and application memory addresses among other fields.
+        -:  801:**
+        -:  802:** \returns
+        -:  803:** \retcode #CFE_SUCCESS         \retdesc \copydoc CFE_SUCCESS         \endcode
+        -:  804:** \retcode #CFE_ES_ERR_APPID    \retdesc \copydoc CFE_ES_ERR_APPID    \endcode
+        -:  805:** \retcode #CFE_ES_ERR_BUFFER   \retdesc \copydoc CFE_ES_ERR_BUFFER   \endcode
+        -:  806:** \endreturns
+        -:  807:**
+        -:  808:** \sa #CFE_ES_GetResetType, #CFE_ES_GetAppID, #CFE_ES_GetAppIDByName, #CFE_ES_GetAppName
+        -:  809:**
+        -:  810:******************************************************************************/
+        -:  811:int32 CFE_ES_GetAppInfo(CFE_ES_AppInfo_t *AppInfo, uint32 AppId);
+        -:  812:
+        -:  813:/*****************************************************************************/
+        -:  814:/**
+        -:  815:** \brief Get Task Information given a specified Task ID
+        -:  816:**
+        -:  817:** \par Description
+        -:  818:**        This routine retrieves the information about a Task associated with a
+        -:  819:**        specified Task ID. The information includes Task Name, and Parent/Creator 
+        -:  820:**        Application ID.
+        -:  821:**
+        -:  822:** \par Assumptions, External Events, and Notes:
+        -:  823:**        None
+        -:  824:**
+        -:  825:** \param[in]   TaskInfo      Pointer to a \c CFE_ES_TaskInfo_t structure that holds the specific 
+        -:  826:**                            task information.
+        -:  827:**
+        -:  828:** \param[in]   TaskId        Application ID of Application whose name is being requested.
+        -:  829:**
+        -:  830:** \param[out]  *TaskInfo     Filled out \c CFE_ES_TaskInfo_t structure containing the 
+        -:  831:**                            Task Name, Parent App Name, Parent App ID among other fields.
+        -:  832:**
+        -:  833:** \returns
+        -:  834:** \retcode #CFE_SUCCESS         \retdesc \copydoc CFE_SUCCESS         \endcode
+        -:  835:** \retcode #CFE_ES_ERR_TASKID   \retdesc \copydoc CFE_ES_ERR_TASKID   \endcode
+        -:  836:** \retcode #CFE_ES_ERR_BUFFER   \retdesc \copydoc CFE_ES_ERR_BUFFER   \endcode
+        -:  837:** \endreturns
+        -:  838:**
+        -:  839:** \sa #CFE_ES_GetResetType, #CFE_ES_GetAppID, #CFE_ES_GetAppIDByName, #CFE_ES_GetAppName
+        -:  840:**
+        -:  841:******************************************************************************/
+        -:  842:int32 CFE_ES_GetTaskInfo(CFE_ES_TaskInfo_t *TaskInfo, uint32 TaskId);
+        -:  843:
+        -:  844:/*
+        -:  845:** Task management functions
+        -:  846:*/
+        -:  847:/*****************************************************************************/
+        -:  848:/**
+        -:  849:** \brief Registers a cFE Child task associated with a cFE Application
+        -:  850:**
+        -:  851:** \par Description
+        -:  852:**        This routine registers a cFE Child task and associates it with its parent
+        -:  853:**        cFE Application.  
+        -:  854:**
+        -:  855:** \par Assumptions, External Events, and Notes:
+        -:  856:**        NOTE: This API \b MUST be called by the Child Task before any other cFE API calls are made.
+        -:  857:**
+        -:  858:** \returns
+        -:  859:** \retcode #CFE_SUCCESS                       \retdesc \copydoc CFE_SUCCESS                     \endcode
+        -:  860:** \retcode #CFE_ES_ERR_CHILD_TASK_REGISTER    \retdesc \copydoc CFE_ES_ERR_CHILD_TASK_REGISTER  \endcode
+        -:  861:** \endreturns
+        -:  862:**
+        -:  863:** \sa #CFE_ES_CreateChildTask, #CFE_ES_DeleteChildTask, #CFE_ES_ExitChildTask
+        -:  864:**
+        -:  865:******************************************************************************/
+        -:  866:int32  CFE_ES_RegisterChildTask(void);
+        -:  867:
+        -:  868:/*****************************************************************************/
+        -:  869:/**
+        -:  870:** \brief Creates a new task under an existing Application
+        -:  871:**
+        -:  872:** \par Description
+        -:  873:**        This routine creates a new task (a separate execution thread) owned by the calling Application.  
+        -:  874:**
+        -:  875:** \par Assumptions, External Events, and Notes:
+        -:  876:**        None
+        -:  877:**
+        -:  878:** \param[in]   TaskIdPtr     A pointer to a variable that will be filled in with the new task's ID.
+        -:  879:**
+        -:  880:** \param[in]   TaskName      A pointer to a string containing the desired name of the new task.  
+        -:  881:**                            This can be up to #OS_MAX_API_NAME characters, including the trailing null.
+        -:  882:**
+        -:  883:** \param[in]   FunctionPtr   A pointer to the function that will be spawned as a new task.  This function 
+        -:  884:**                            must have the following signature: uint32 function(void).  Input parameters 
+        -:  885:**                            for the new task are not supported.
+        -:  886:**
+        -:  887:** \param[in]   StackPtr      A pointer to the location where the child task's stack pointer should start.   
+        -:  888:**                            NOTE: Not all underlying operating systems support this parameter.
+        -:  889:**
+        -:  890:** \param[in]   StackSize     The number of bytes to allocate for the new task's stack.
+        -:  891:**
+        -:  892:** \param[in]   Priority      The priority for the new task.  Lower numbers are higher priority, with 0 being 
+        -:  893:**                            the highest priority.  Applications cannot create tasks with a higher priority 
+        -:  894:**                            (lower number) than their own priority.
+        -:  895:**
+        -:  896:** \param[in]   Flags         Reserved for future expansion.
+        -:  897:**
+        -:  898:** \param[out]  *TaskIdPtr    The Task ID of the newly created child task.
+        -:  899:**
+        -:  900:** \returns
+        -:  901:** \retcode #CFE_SUCCESS                     \retdesc \copydoc CFE_SUCCESS                   \endcode
+        -:  902:** \retcode #CFE_ES_ERR_CHILD_TASK_CREATE    \retdesc \copydoc CFE_ES_ERR_CHILD_TASK_CREATE  \endcode
+        -:  903:** \endreturns
+        -:  904:**
+        -:  905:** \sa #CFE_ES_RegisterChildTask, #CFE_ES_DeleteChildTask, #CFE_ES_ExitChildTask
+        -:  906:**
+        -:  907:******************************************************************************/
+        -:  908:int32  CFE_ES_CreateChildTask(uint32                          *TaskIdPtr,
+        -:  909:                              const char                      *TaskName,
+        -:  910:                              CFE_ES_ChildTaskMainFuncPtr_t    FunctionPtr,
+        -:  911:                              uint32                          *StackPtr,
+        -:  912:                              uint32                           StackSize,
+        -:  913:                              uint32                           Priority,
+        -:  914:                              uint32                           Flags);
+        -:  915:
+        -:  916:/*****************************************************************************/
+        -:  917:/**
+        -:  918:** \brief Deletes a task under an existing Application
+        -:  919:**
+        -:  920:** \par Description
+        -:  921:**        This routine deletes a task under an Application specified by the \c TaskId obtained
+        -:  922:**        when the child task was created using the #CFE_ES_CreateChildTask API.
+        -:  923:**
+        -:  924:** \par Assumptions, External Events, and Notes:
+        -:  925:**        None
+        -:  926:**
+        -:  927:** \param[in]   TaskId     The task ID previously obtained when the Child Task was created with the #CFE_ES_CreateChildTask API.
+        -:  928:**
+        -:  929:** \returns
+        -:  930:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc \copydoc CFE_ES_NOT_IMPLEMENTED  \endcode
+        -:  931:** \endreturns
+        -:  932:**
+        -:  933:** \sa #CFE_ES_RegisterChildTask, #CFE_ES_CreateChildTask, #CFE_ES_ExitChildTask
+        -:  934:**
+        -:  935:******************************************************************************/
+        -:  936:int32 CFE_ES_DeleteChildTask(uint32 TaskId);
+        -:  937:
+        -:  938:/*****************************************************************************/
+        -:  939:/**
+        -:  940:** \brief Exits a child task
+        -:  941:**
+        -:  942:** \par Description
+        -:  943:**        This routine allows the current executing child task to exit and 
+        -:  944:**        be deleted by ES.
+        -:  945:**
+        -:  946:** \par Assumptions, External Events, and Notes:
+        -:  947:**        This function cannot be called from an Application's Main Task.
+        -:  948:**
+        -:  949:** \returns
+        -:  950:** \retstmt
+        -:  951:**        This function does not return a value, but if it does return
+        -:  952:**        at all, it is assumed that the Task was either unregistered or
+        -:  953:**        this function was called from a cFE Application's main task.   \endcode
+        -:  954:** \endreturns
+        -:  955:**
+        -:  956:** \sa #CFE_ES_RegisterChildTask, #CFE_ES_CreateChildTask, #CFE_ES_DeleteChildTask
+        -:  957:**
+        -:  958:******************************************************************************/
+        -:  959:void CFE_ES_ExitChildTask(void);
+        -:  960:
+        -:  961:/*****************************************************************************/
+        -:  962:/**
+        -:  963:** \brief Increments the execution counter for the calling task
+        -:  964:**
+        -:  965:** \par Description
+        -:  966:**        This routine increments the execution counter that is stored for
+        -:  967:**        the calling task. It can be called from cFE Application main tasks, child
+        -:  968:**        tasks, or cFE Core application main tasks. Normally, the call is not 
+        -:  969:**        necessary from a cFE Application, since the CFE_ES_RunLoop call increments
+        -:  970:**        the counter for the Application. 
+        -:  971:**
+        -:  972:** \par Assumptions, External Events, and Notes:
+        -:  973:**        NOTE: This API is not needed for Appplications that call the CFE_ES_RunLoop call.
+        -:  974:**
+        -:  975:** \returns
+        -:  976:** \retstmt
+        -:  977:**        This function does not return a value.   \endcode
+        -:  978:** \endreturns
+        -:  979:**
+        -:  980:** \sa #CFE_ES_RunLoop
+        -:  981:**
+        -:  982:******************************************************************************/
+        -:  983:void  CFE_ES_IncrementTaskCounter(void);
+        -:  984:
+        -:  985:/*
+        -:  986:** Log management functions
+        -:  987:*/
+        -:  988:
+        -:  989:/*****************************************************************************/
+        -:  990:/**
+        -:  991:** \brief Write a string to the cFE System Log
+        -:  992:**
+        -:  993:** \par Description
+        -:  994:**        This routine writes a formatted string to the cFE system log.  This 
+        -:  995:**        can be used to record very low-level errors that can't be reported 
+        -:  996:**        using the Event Services. This function is used in place of printf 
+        -:  997:**        for flight software. It should be used for significant startup events, 
+        -:  998:**        critical errors, and conditionally compiled debug software. 
+        -:  999:**
+        -: 1000:** \par Assumptions, External Events, and Notes:
+        -: 1001:**        None
+        -: 1002:**
+        -: 1003:** \param[in]   SpecStringPtr     The format string for the log message.  
+        -: 1004:**                                This is similar to the format string for a printf() call.
+        -: 1005:**
+        -: 1006:** \returns
+        -: 1007:** \retcode #CFE_SUCCESS             \retdesc \copydoc CFE_SUCCESS             \endcode
+        -: 1008:** \retcode #CFE_ES_ERR_SYS_LOG_FULL \retdesc \copydoc CFE_ES_ERR_SYS_LOG_FULL \endcode
+        -: 1009:** \endreturns
+        -: 1010:**
+        -: 1011:** \sa
+        -: 1012:**
+        -: 1013:******************************************************************************/
+        -: 1014:int32 CFE_ES_WriteToSysLog(const char *SpecStringPtr, ...) OS_PRINTF(1,2);
+        -: 1015:
+        -: 1016:/*****************************************************************************/
+        -: 1017:/**
+        -: 1018:** \brief Calculate a CRC on a block of memory
+        -: 1019:**
+        -: 1020:** \par Description
+        -: 1021:**        This routine calculates a cyclic redundancy check (CRC) on a block of memory.  The CRC algorithm
+        -: 1022:**        used is determined by the last parameter. 
+        -: 1023:**
+        -: 1024:** \par Assumptions, External Events, and Notes:
+        -: 1025:**        None
+        -: 1026:**
+        -: 1027:** \param[in]   DataPtr     Pointer to the base of the memory block.
+        -: 1028:**
+        -: 1029:** \param[in]   DataLength  The number of bytes in the memory block.
+        -: 1030:**
+        -: 1031:** \param[in]   InputCRC    A starting value for use in the CRC calculation.  This parameter
+        -: 1032:**                          allows the user to calculate the CRC of non-contiguous blocks as
+        -: 1033:**                          a single value.  Nominally, the user should set this value to zero.
+        -: 1034:**
+        -: 1035:** \param[in]   TypeCRC     One of the following CRC algorithm selections:
+        -: 1036:**
+        -: 1037:**                          \arg \c CFE_MISSION_ES_CRC_8 - (Not currently implemented)
+        -: 1038:**                          \arg \c CFE_MISSION_ES_CRC_16 - a CRC-16 algorithm
+        -: 1039:**                          \arg \c CFE_MISSION_ES_CRC_32 - (not currently implemented)
+        -: 1040:**
+        -: 1041:** \returns
+        -: 1042:** \retstmt The result of the CRC calculation on the specified memory block. \endcode
+        -: 1043:** \endreturns
+        -: 1044:**
+        -: 1045:******************************************************************************/
+        -: 1046:uint32 CFE_ES_CalculateCRC(const void *DataPtr, uint32 DataLength, uint32 InputCRC, uint32 TypeCRC);
+        -: 1047:
+        -: 1048:/*
+        -: 1049:** Critical Data Store API
+        -: 1050:*/
+        -: 1051:
+        -: 1052:/*****************************************************************************/
+        -: 1053:/**
+        -: 1054:** \brief Reserve space (or re-obtain previously reserved space) in the Critical Data Store (CDS)
+        -: 1055:**
+        -: 1056:** \par Description
+        -: 1057:**        This routine allocates a block of memory in the Critical Data Store and associates it with
+        -: 1058:**        the calling Application.  The memory can survive an Application restart as well as a Processor Reset. 
+        -: 1059:**
+        -: 1060:** \par Assumptions, External Events, and Notes:
+        -: 1061:**        None
+        -: 1062:**
+        -: 1063:** \param[in]   HandlePtr   Pointer Application's variable that will contain the CDS Memory Block Handle.
+        -: 1064:**
+        -: 1065:** \param[in]   BlockSize   The number of bytes needed in the CDS.
+        -: 1066:**
+        -: 1067:** \param[in]   Name        A pointer to a character string containing an application 
+        -: 1068:**                          unique name of #CFE_MISSION_ES_CDS_MAX_NAME_LENGTH characters or less.
+        -: 1069:**
+        -: 1070:** \param[out]  *HandlePtr  The handle of the CDS block that can be used in 
+        -: 1071:**                          #CFE_ES_CopyToCDS and #CFE_ES_RestoreFromCDS.
+        -: 1072:**
+        -: 1073:** \returns
+        -: 1074:** \retcode #CFE_SUCCESS  \retdesc The memory block was successfully created in the CDS.           \endcode
+        -: 1075:** \retcode #CFE_ES_NOT_IMPLEMENTED \retdesc The processor does not support a Critical Data Store. \endcode
+        -: 1076:** \retcode #CFE_ES_CDS_ALREADY_EXISTS \retdesc \copydoc CFE_ES_CDS_ALREADY_EXISTS                 \endcode
+        -: 1077:** \retcode #CFE_ES_CDS_INVALID_SIZE   \retdesc \copydoc CFE_ES_CDS_INVALID_SIZE                   \endcode
+        -: 1078:** \retcode #CFE_ES_CDS_INVALID_NAME   \retdesc \copydoc CFE_ES_CDS_INVALID_NAME                   \endcode
+        -: 1079:** \retcode #CFE_ES_CDS_REGISTRY_FULL  \retdesc \copydoc CFE_ES_CDS_REGISTRY_FULL                  \endcode
+        -: 1080:** \endreturns
+        -: 1081:**
+        -: 1082:** \sa #CFE_ES_CopyToCDS, #CFE_ES_RestoreFromCDS
+        -: 1083:**
+        -: 1084:******************************************************************************/
+        -: 1085:int32 CFE_ES_RegisterCDS(CFE_ES_CDSHandle_t *HandlePtr, int32 BlockSize, const char *Name);
+        -: 1086:
+        -: 1087:/*****************************************************************************/
+        -: 1088:/**
+        -: 1089:** \brief Save a block of data in the Critical Data Store (CDS)
+        -: 1090:**
+        -: 1091:** \par Description
+        -: 1092:**        This routine copies a specified block of memory into the Critical Data Store that
+        -: 1093:**        had been previously registered via #CFE_ES_RegisterCDS.  The block of memory to be
+        -: 1094:**        copied must be at least as big as the size specified when registering the CDS.
+        -: 1095:**
+        -: 1096:** \par Assumptions, External Events, and Notes:
+        -: 1097:**        None
+        -: 1098:**
+        -: 1099:** \param[in]   Handle       The handle of the CDS block that was previously obtained from #CFE_ES_RegisterCDS.
+        -: 1100:**
+        -: 1101:** \param[in]   DataToCopy   A Pointer to the block of memory to be copied into the CDS.
+        -: 1102:**
+        -: 1103:** \returns
+        -: 1104:** \retcode #OS_SUCCESS              \retdesc \copydoc OS_SUCCESS              \endcode
+        -: 1105:** \retcode #CFE_ES_ERR_MEM_HANDLE   \retdesc \copydoc CFE_ES_ERR_MEM_HANDLE   \endcode
+        -: 1106:** \retcode #OS_ERROR                \retdesc Problem with handle or a size mismatch   \endcode
+        -: 1107:** \endreturns
+        -: 1108:**
+        -: 1109:** \sa #CFE_ES_RegisterCDS, #CFE_ES_RestoreFromCDS
+        -: 1110:**
+        -: 1111:*/
+        -: 1112:int32 CFE_ES_CopyToCDS(CFE_ES_CDSHandle_t Handle, void *DataToCopy);
+        -: 1113:
+        -: 1114:/*****************************************************************************/
+        -: 1115:/**
+        -: 1116:** \brief Recover a block of data from the Critical Data Store (CDS)
+        -: 1117:**
+        -: 1118:** \par Description
+        -: 1119:**        This routine copies data from the Critical Data Store identified with the \c Handle into
+        -: 1120:**        the area of memory pointed to by the \c RestoreToMemory pointer.  The area of memory to
+        -: 1121:**        be copied into must be at least as big as the size specified when registering the CDS.
+        -: 1122:**        The recovery will indicate an error if the data integrity check maintained by the CDS 
+        -: 1123:**        indicates the contents of the CDS have changed.  However, the contents will still be
+        -: 1124:**        copied into the specified area of memory.
+        -: 1125:**
+        -: 1126:** \par Assumptions, External Events, and Notes:
+        -: 1127:**        None
+        -: 1128:**
+        -: 1129:** \param[in]   Handle             The handle of the CDS block that was previously obtained from #CFE_ES_RegisterCDS.
+        -: 1130:**
+        -: 1131:** \param[in]   RestoreToMemory    A Pointer to the block of memory that is to be restored with the contents of the CDS.
+        -: 1132:**
+        -: 1133:** \param[out]  *RestoreToMemory   The contents of the specified CDS.
+        -: 1134:**
+        -: 1135:** \returns
+        -: 1136:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS                     \endcode
+        -: 1137:** \retcode #CFE_ES_CDS_BLOCK_CRC_ERR   \retdesc \copydoc CFE_ES_CDS_BLOCK_CRC_ERR        \endcode
+        -: 1138:** \retcode #OS_ERROR                   \retdesc Problem with handle or a size mismatch   \endcode
+        -: 1139:** \endreturns
+        -: 1140:**
+        -: 1141:** \sa #CFE_ES_RegisterCDS, #CFE_ES_CopyToCDS
+        -: 1142:**
+        -: 1143:*/
+        -: 1144:int32 CFE_ES_RestoreFromCDS(void *RestoreToMemory, CFE_ES_CDSHandle_t Handle);
+        -: 1145:
+        -: 1146:/*
+        -: 1147:** Memory Allocation/Deallocation API
+        -: 1148:*/
+        -: 1149:
+        -: 1150:/*****************************************************************************/
+        -: 1151:/**
+        -: 1152:** \brief Initializes a memory pool created by an application without using a semaphore during processing.
+        -: 1153:**
+        -: 1154:** \par Description
+        -: 1155:**        This routine initializes a pool of memory supplied by the calling application.  When a memory pool
+        -: 1156:**        created by this routine is processed, no mutex handling is performed.  
+        -: 1157:**
+        -: 1158:** \par Assumptions, External Events, and Notes:
+        -: 1159:**        -# The size of the pool must be an integral number of 32-bit words
+        -: 1160:**        -# The start address of the pool must be 32-bit aligned
+        -: 1161:**        -# 168 bytes are used for internal bookkeeping, therefore, they will not be available for allocation.
+        -: 1162:**
+        -: 1163:** \param[in]   HandlePtr   A pointer to the variable the caller wishes to have the memory pool handle kept in.
+        -: 1164:**
+        -: 1165:** \param[in]   MemPtr      A Pointer to the pool of memory created by the calling application. This address must
+        -: 1166:**                          be on a 32-bit boundary.
+        -: 1167:**
+        -: 1168:** \param[in]   Size        The size of the pool of memory.  Note that this must be an integral number of 32 bit words.
+        -: 1169:**
+        -: 1170:** \param[out]  *HandlePtr  The memory pool handle.
+        -: 1171:**
+        -: 1172:** \returns
+        -: 1173:** \retcode #CFE_SUCCESS           \retdesc \copydoc CFE_SUCCESS           \endcode
+        -: 1174:** \retcode #CFE_ES_BAD_ARGUMENT   \retdesc \copydoc CFE_ES_BAD_ARGUMENT   \endcode
+        -: 1175:** \endreturns
+        -: 1176:**
+        -: 1177:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateEx, #CFE_ES_GetPoolBuf, #CFE_ES_PutPoolBuf, #CFE_ES_GetMemPoolStats
+        -: 1178:**
+        -: 1179:******************************************************************************/
+        -: 1180:int32 CFE_ES_PoolCreateNoSem(CFE_ES_MemHandle_t *HandlePtr, uint8 *MemPtr, uint32 Size);
+        -: 1181:
+        -: 1182:/*****************************************************************************/
+        -: 1183:/**
+        -: 1184:** \brief Initializes a memory pool created by an application while using a semaphore during processing.
+        -: 1185:**
+        -: 1186:** \par Description
+        -: 1187:**        This routine initializes a pool of memory supplied by the calling application.  When a memory pool
+        -: 1188:**        created by this routine is processed, mutex handling will be performed.  
+        -: 1189:**
+        -: 1190:** \par Assumptions, External Events, and Notes:
+        -: 1191:**        -# The size of the pool must be an integral number of 32-bit words
+        -: 1192:**        -# The start address of the pool must be 32-bit aligned
+        -: 1193:**        -# 168 bytes are used for internal bookkeeping, therefore, they will not be available for allocation.
+        -: 1194:**
+        -: 1195:** \param[in]   HandlePtr   A pointer to the variable the caller wishes to have the memory pool handle kept in.
+        -: 1196:**
+        -: 1197:** \param[in]   MemPtr      A Pointer to the pool of memory created by the calling application. This address must
+        -: 1198:**                          be on a 32-bit boundary.
+        -: 1199:**
+        -: 1200:** \param[in]   Size        The size of the pool of memory.  Note that this must be an integral number of 32 bit words.
+        -: 1201:**
+        -: 1202:** \param[out]  *HandlePtr  The memory pool handle.
+        -: 1203:**
+        -: 1204:** \returns
+        -: 1205:** \retcode #CFE_SUCCESS           \retdesc \copydoc CFE_SUCCESS           \endcode
+        -: 1206:** \retcode #CFE_ES_BAD_ARGUMENT   \retdesc \copydoc CFE_ES_BAD_ARGUMENT   \endcode
+        -: 1207:** \endreturns
+        -: 1208:**
+        -: 1209:** \sa #CFE_ES_PoolCreateNoSem, #CFE_ES_PoolCreateEx, #CFE_ES_GetPoolBuf, #CFE_ES_PutPoolBuf, #CFE_ES_GetMemPoolStats
+        -: 1210:**
+        -: 1211:******************************************************************************/
+        -: 1212:int32 CFE_ES_PoolCreate(CFE_ES_MemHandle_t *HandlePtr, uint8 *MemPtr, uint32 Size);
+        -: 1213:
+        -: 1214:/*****************************************************************************/
+        -: 1215:/**
+        -: 1216:** \brief Initializes a memory pool created by an application with application specified block sizes.
+        -: 1217:**
+        -: 1218:** \par Description
+        -: 1219:**        This routine initializes a pool of memory supplied by the calling application.  
+        -: 1220:**
+        -: 1221:** \par Assumptions, External Events, and Notes:
+        -: 1222:**        -# The size of the pool must be an integral number of 32-bit words
+        -: 1223:**        -# The start address of the pool must be 32-bit aligned
+        -: 1224:**        -# 168 bytes are used for internal bookkeeping, therefore, they will not be available for allocation.
+        -: 1225:**
+        -: 1226:** \param[in]   HandlePtr      A pointer to the variable the caller wishes to have the memory pool handle kept in.
+        -: 1227:**
+        -: 1228:** \param[in]   MemPtr         A Pointer to the pool of memory created by the calling application. This address must
+        -: 1229:**                             be on a 32-bit boundary.
+        -: 1230:**
+        -: 1231:** \param[in]   Size           The size of the pool of memory.  Note that this must be an integral number of 32 bit words.
+        -: 1232:**
+        -: 1233:** \param[in]   NumBlockSizes  The number of different block sizes specified in the \c BlockSizes array. If set equal to
+        -: 1234:**                             zero or if greater than 17, then default block sizes are used.
+        -: 1235:**
+        -: 1236:** \param[in]   BlockSizes     Pointer to an array of sizes to be used instead of the default block sizes specified by
+        -: 1237:**                             #CFE_PLATFORM_ES_MEM_BLOCK_SIZE_01 through #CFE_PLATFORM_ES_MAX_BLOCK_SIZE.  If the pointer is equal to NULL,
+        -: 1238:**                             the default block sizes are used.
+        -: 1239:**
+        -: 1240:** \param[in]   UseMutex       Flag indicating whether the new memory pool will be processing with mutex handling or not.
+        -: 1241:**                             Valid parameter values are #CFE_ES_USE_MUTEX and #CFE_ES_NO_MUTEX
+        -: 1242:**
+        -: 1243:** \param[out]  *HandlePtr     The memory pool handle.
+        -: 1244:**
+        -: 1245:** \returns
+        -: 1246:** \retcode #CFE_SUCCESS           \retdesc \copydoc CFE_SUCCESS          \endcode
+        -: 1247:** \retcode #CFE_ES_BAD_ARGUMENT   \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1248:** \endreturns
+        -: 1249:**
+        -: 1250:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateNoSem, #CFE_ES_GetPoolBuf, #CFE_ES_PutPoolBuf, #CFE_ES_GetMemPoolStats
+        -: 1251:**
+        -: 1252:******************************************************************************/
+        -: 1253:int32 CFE_ES_PoolCreateEx(CFE_ES_MemHandle_t *HandlePtr, uint8 *MemPtr, uint32 Size, uint32 NumBlockSizes, uint32 *BlockSizes, uint16 UseMutex);
+        -: 1254:
+        -: 1255:/*****************************************************************************/
+        -: 1256:/**
+        -: 1257:** \brief Gets a buffer from the memory pool created by #CFE_ES_PoolCreate or #CFE_ES_PoolCreateNoSem
+        -: 1258:**
+        -: 1259:** \par Description
+        -: 1260:**        This routine obtains a block of memory from the memory pool supplied by the calling application.    
+        -: 1261:**
+        -: 1262:** \par Assumptions, External Events, and Notes:
+        -: 1263:**        -# The size allocated from the memory pool is, at a minimum, 12 bytes more than requested.
+        -: 1264:**
+        -: 1265:** \param[in]   BufPtr      A pointer to the Application's pointer in which will be stored the address of the allocated memory buffer.
+        -: 1266:**
+        -: 1267:** \param[in]   HandlePtr   The handle to the memory pool as returned by #CFE_ES_PoolCreate or #CFE_ES_PoolCreateNoSem.
+        -: 1268:**
+        -: 1269:** \param[in]   Size        The size of the buffer requested.  NOTE: The size allocated may be larger.
+        -: 1270:**
+        -: 1271:** \param[out]  *BufPtr     The address of the requested buffer.
+        -: 1272:**
+        -: 1273:** \returns
+        -: 1274:** \retstmt When successful, the return value is a positive number and is the number of bytes 
+        -: 1275:**          actually allocated for the buffer. \endcode
+        -: 1276:** \retcode #CFE_ES_ERR_MEM_HANDLE      \retdesc \copydoc CFE_ES_ERR_MEM_HANDLE       \endcode
+        -: 1277:** \retcode #CFE_ES_ERR_MEM_BLOCK_SIZE  \retdesc \copydoc CFE_ES_ERR_MEM_BLOCK_SIZE   \endcode
+        -: 1278:** \endreturns
+        -: 1279:**
+        -: 1280:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateNoSem, #CFE_ES_PoolCreateEx, #CFE_ES_PutPoolBuf, #CFE_ES_GetMemPoolStats, #CFE_ES_GetPoolBufInfo
+        -: 1281:**
+        -: 1282:******************************************************************************/
+        -: 1283:int32 CFE_ES_GetPoolBuf(uint32 **BufPtr, CFE_ES_MemHandle_t HandlePtr, uint32 Size);
+        -: 1284:
+        -: 1285:/*****************************************************************************/
+        -: 1286:/**
+        -: 1287:** \brief Gets info on a buffer previously allocated via #CFE_ES_GetPoolBuf
+        -: 1288:**
+        -: 1289:** \par Description
+        -: 1290:**        This routine gets info on a buffer in the memory pool.    
+        -: 1291:**
+        -: 1292:** \par Assumptions, External Events, and Notes:
+        -: 1293:**        None
+        -: 1294:**
+        -: 1295:** \param[in]   HandlePtr   The handle to the memory pool as returned by #CFE_ES_PoolCreate or #CFE_ES_PoolCreateNoSem.
+        -: 1296:**
+        -: 1297:** \param[in]   BufPtr      A pointer to the memory buffer to provide status for.
+        -: 1298:**
+        -: 1299:** \returns
+        -: 1300:** \retstmt When successful, the return value is a positive number and is the number of bytes actually allocated. \endcode
+        -: 1301:** \retcode #CFE_ES_ERR_MEM_HANDLE      \retdesc \copydoc CFE_ES_ERR_MEM_HANDLE   \endcode
+        -: 1302:** \retcode #CFE_ES_BUFFER_NOT_IN_POOL  \retdesc \copydoc CFE_ES_BUFFER_NOT_IN_POOL   \endcode
+        -: 1303:** \endreturns
+        -: 1304:**
+        -: 1305:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateNoSem, #CFE_ES_PoolCreateEx, #CFE_ES_GetPoolBuf, #CFE_ES_GetMemPoolStats, #CFE_ES_PutPoolBuf
+        -: 1306:**
+        -: 1307:******************************************************************************/
+        -: 1308:int32 CFE_ES_GetPoolBufInfo(CFE_ES_MemHandle_t HandlePtr, uint32 *BufPtr);
+        -: 1309:
+        -: 1310:/*****************************************************************************/
+        -: 1311:/**
+        -: 1312:** \brief Releases a buffer from the memory pool that was previously allocated via #CFE_ES_GetPoolBuf
+        -: 1313:**
+        -: 1314:** \par Description
+        -: 1315:**        This routine releases a buffer back into the memory pool.    
+        -: 1316:**
+        -: 1317:** \par Assumptions, External Events, and Notes:
+        -: 1318:**        None
+        -: 1319:**
+        -: 1320:** \param[in]   HandlePtr   The handle to the memory pool as returned by #CFE_ES_PoolCreate or #CFE_ES_PoolCreateNoSem.
+        -: 1321:**
+        -: 1322:** \param[in]   BufPtr      A pointer to the memory buffer to be released.
+        -: 1323:**
+        -: 1324:** \returns
+        -: 1325:** \retstmt When successful, the return value is a positive number and is the number of bytes actually released. \endcode
+        -: 1326:** \retcode #CFE_ES_ERR_MEM_HANDLE      \retdesc \copydoc CFE_ES_ERR_MEM_HANDLE   \endcode
+        -: 1327:** \endreturns
+        -: 1328:**
+        -: 1329:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateNoSem, #CFE_ES_PoolCreateEx, #CFE_ES_GetPoolBuf, #CFE_ES_GetMemPoolStats, #CFE_ES_GetPoolBufInfo
+        -: 1330:**
+        -: 1331:******************************************************************************/
+        -: 1332:int32 CFE_ES_PutPoolBuf(CFE_ES_MemHandle_t HandlePtr, uint32 *BufPtr);
+        -: 1333:
+        -: 1334:/*****************************************************************************/
+        -: 1335:/**
+        -: 1336:** \brief Extracts the statistics maintained by the memory pool software
+        -: 1337:**
+        -: 1338:** \par Description
+        -: 1339:**        This routine fills the #CFE_ES_MemPoolStats_t data structure with the statistics
+        -: 1340:**        maintained by the memory pool software.  These statistics can then be telemetered
+        -: 1341:**        by the calling Application.    
+        -: 1342:**
+        -: 1343:** \par Assumptions, External Events, and Notes:
+        -: 1344:**        None
+        -: 1345:**
+        -: 1346:** \param[in]   BufPtr      Pointer to #CFE_ES_MemPoolStats_t data structure to be 
+        -: 1347:**                          filled with memory statistics.
+        -: 1348:**
+        -: 1349:** \param[in]   Handle      The handle to the memory pool whose statistics are desired.
+        -: 1350:**
+        -: 1351:** \param[out] *BufPtr      Memory Pool Statistics stored in given data structure.
+        -: 1352:**
+        -: 1353:** \returns
+        -: 1354:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1355:** \retcode #CFE_ES_ERR_MEM_HANDLE      \retdesc \copydoc CFE_ES_ERR_MEM_HANDLE  \endcode
+        -: 1356:** \endreturns
+        -: 1357:**
+        -: 1358:** \sa #CFE_ES_PoolCreate, #CFE_ES_PoolCreateNoSem, #CFE_ES_PoolCreateEx, #CFE_ES_GetPoolBuf, #CFE_ES_PutPoolBuf
+        -: 1359:**
+        -: 1360:******************************************************************************/
+        -: 1361:int32 CFE_ES_GetMemPoolStats(CFE_ES_MemPoolStats_t *BufPtr, CFE_ES_MemHandle_t  Handle);
+        -: 1362:
+        -: 1363:/*
+        -: 1364:** Performance Log API
+        -: 1365:*/
+        -: 1366:
+        -: 1367:/*****************************************************************************/
+        -: 1368:/**
+        -: 1369:** \brief Entry marker for use with Software Performance Analysis Tool.
+        -: 1370:**
+        -: 1371:** \par Description
+        -: 1372:**        This macro logs the entry or start event/marker for the specified 
+        -: 1373:**        entry \c id. This macro, in conjunction with the #CFE_ES_PerfLogExit, 
+        -: 1374:**        is used by the Software Performance Analysis tool (see section 5.15).    
+        -: 1375:**
+        -: 1376:** \par Assumptions, External Events, and Notes:
+        -: 1377:**        None
+        -: 1378:**
+        -: 1379:** \param[in]   id          Identifier of the specific event or marker.
+        -: 1380:**
+        -: 1381:** \sa #CFE_ES_PerfLogExit, #CFE_ES_PerfLogAdd
+        -: 1382:**
+        -: 1383:******************************************************************************/
+        -: 1384:#define CFE_ES_PerfLogEntry(id) (CFE_ES_PerfLogAdd(id, 0))
+        -: 1385:
+        -: 1386:/*****************************************************************************/
+        -: 1387:/**
+        -: 1388:** \brief Exit marker for use with Software Performance Analysis Tool.
+        -: 1389:**
+        -: 1390:** \par Description
+        -: 1391:**        This macro logs the exit or end event/marker for the specified 
+        -: 1392:**        entry \c id. This macro, in conjunction with the #CFE_ES_PerfLogEntry, 
+        -: 1393:**        is used by the Software Performance Analysis tool (see section 5.15).    
+        -: 1394:**
+        -: 1395:** \par Assumptions, External Events, and Notes:
+        -: 1396:**        None
+        -: 1397:**
+        -: 1398:** \param[in]   id          Identifier of the specific event or marker.
+        -: 1399:**
+        -: 1400:** \sa #CFE_ES_PerfLogEntry, #CFE_ES_PerfLogAdd
+        -: 1401:**
+        -: 1402:******************************************************************************/
+        -: 1403:#define CFE_ES_PerfLogExit(id) (CFE_ES_PerfLogAdd(id, 1))
+        -: 1404:
+        -: 1405:
+        -: 1406:/*****************************************************************************/
+        -: 1407:/**
+        -: 1408:** \brief Function called by CFE_ES_PerfLogEntry and CFE_ES_PerfLogExit macros
+        -: 1409:**
+        -: 1410:** \par Description
+        -: 1411:**        This function logs the entry and exit marker for the specified 
+        -: 1412:**        \c id. This function is used by the Software Performance Analysis 
+        -: 1413:**        tool (see section 5.15).    
+        -: 1414:**
+        -: 1415:** \par Assumptions, External Events, and Notes:
+        -: 1416:**        None
+        -: 1417:**
+        -: 1418:** \param[in]   Marker          Identifier of the specific event or marker.
+        -: 1419:** \param[in]   EntryExit       Used to specify Entry(0) or Exit(1)
+        -: 1420:**
+        -: 1421:** \sa #CFE_ES_PerfLogEntry, #CFE_ES_PerfLogExit
+        -: 1422:**
+        -: 1423:******************************************************************************/
+        -: 1424:void CFE_ES_PerfLogAdd(uint32 Marker, uint32 EntryExit);
+        -: 1425:
+        -: 1426:/*
+        -: 1427:** Generic Counter API
+        -: 1428:*/
+        -: 1429:
+        -: 1430:/*****************************************************************************/
+        -: 1431:/**
+        -: 1432:** \brief Register a generic counter
+        -: 1433:**
+        -: 1434:** \par Description
+        -: 1435:**        This routine registers a generic counter. 
+        -: 1436:**
+        -: 1437:** \par Assumptions, External Events, and Notes:
+        -: 1438:**        None.
+        -: 1439:**
+        -: 1440:** \param[in]  *CounterName   The Name of the generic counter.
+        -: 1441:**
+        -: 1442:** \param[out] *CounterIdPtr  The Counter Id of the newly created counter.
+        -: 1443:**
+        -: 1444:** \returns
+        -: 1445:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1446:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1447:** \endreturns
+        -: 1448:**
+        -: 1449:** \sa #CFE_ES_IncrementGenCounter, #CFE_ES_DeleteGenCounter, #CFE_ES_SetGenCount, #CFE_ES_GetGenCount, #CFE_ES_GetGenCounterIDByName
+        -: 1450:**
+        -: 1451:******************************************************************************/
+        -: 1452:int32 CFE_ES_RegisterGenCounter(uint32 *CounterIdPtr, const char *CounterName);
+        -: 1453:
+        -: 1454:/*****************************************************************************/
+        -: 1455:/**
+        -: 1456:** \brief Delete a generic counter
+        -: 1457:**
+        -: 1458:** \par Description
+        -: 1459:**        This routine deletes a previously registered generic counter. 
+        -: 1460:**
+        -: 1461:** \par Assumptions, External Events, and Notes:
+        -: 1462:**        None.
+        -: 1463:**
+        -: 1464:** \param[in]  CounterId     The Counter Id of the newly created counter.
+        -: 1465:**
+        -: 1466:** \returns
+        -: 1467:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1468:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1469:** \endreturns
+        -: 1470:**
+        -: 1471:** \sa #CFE_ES_IncrementGenCounter, #CFE_ES_RegisterGenCounter, #CFE_ES_SetGenCount, #CFE_ES_GetGenCount, #CFE_ES_GetGenCounterIDByName
+        -: 1472:**
+        -: 1473:******************************************************************************/
+        -: 1474:int32 CFE_ES_DeleteGenCounter(uint32 CounterId);
+        -: 1475:
+        -: 1476:/*****************************************************************************/
+        -: 1477:/**
+        -: 1478:** \brief Increments the specified generic counter
+        -: 1479:**
+        -: 1480:** \par Description
+        -: 1481:**        This routine increments the specified generic counter. 
+        -: 1482:**
+        -: 1483:** \par Assumptions, External Events, and Notes:
+        -: 1484:**        None.
+        -: 1485:**
+        -: 1486:** \param[in]   CounterId    The Counter to be incremented.
+        -: 1487:**
+        -: 1488:** \returns
+        -: 1489:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1490:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1491:** \endreturns
+        -: 1492:**
+        -: 1493:** \sa #CFE_ES_RegisterGenCounter, #CFE_ES_DeleteGenCounter, #CFE_ES_SetGenCount, #CFE_ES_GetGenCount, #CFE_ES_GetGenCounterIDByName
+        -: 1494:**
+        -: 1495:******************************************************************************/
+        -: 1496:int32 CFE_ES_IncrementGenCounter(uint32 CounterId);
+        -: 1497:
+        -: 1498:/*****************************************************************************/
+        -: 1499:/**
+        -: 1500:** \brief Set the specified generic counter
+        -: 1501:**
+        -: 1502:** \par Description
+        -: 1503:**        This routine sets the specified generic counter to the specified value. 
+        -: 1504:**
+        -: 1505:** \par Assumptions, External Events, and Notes:
+        -: 1506:**        None.
+        -: 1507:**
+        -: 1508:** \param[in]   CounterId    The Counter to be set.
+        -: 1509:**
+        -: 1510:** \param[in]   Count        The new value of the Counter.
+        -: 1511:**
+        -: 1512:** \returns
+        -: 1513:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1514:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1515:** \endreturns
+        -: 1516:**
+        -: 1517:** \sa #CFE_ES_RegisterGenCounter, #CFE_ES_DeleteGenCounter, #CFE_ES_IncrementGenCounter, #CFE_ES_GetGenCount, #CFE_ES_GetGenCounterIDByName
+        -: 1518:**
+        -: 1519:******************************************************************************/
+        -: 1520:int32 CFE_ES_SetGenCount(uint32 CounterId, uint32 Count);
+        -: 1521:
+        -: 1522:/*****************************************************************************/
+        -: 1523:/**
+        -: 1524:** \brief Get the specified generic counter count
+        -: 1525:**
+        -: 1526:** \par Description
+        -: 1527:**        This routine gets the value of a generic counter. 
+        -: 1528:**
+        -: 1529:** \par Assumptions, External Events, and Notes:
+        -: 1530:**        None.
+        -: 1531:**
+        -: 1532:** \param[in]   CounterId    The Counter to get the value from.
+        -: 1533:**
+        -: 1534:** \param[in]   *Count     The value of the Counter.
+        -: 1535:**
+        -: 1536:** \returns
+        -: 1537:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1538:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1539:** \endreturns
+        -: 1540:**
+        -: 1541:** \sa #CFE_ES_RegisterGenCounter, #CFE_ES_DeleteGenCounter, #CFE_ES_SetGenCount, #CFE_ES_IncrementGenCounter, #CFE_ES_GetGenCounterIDByName
+        -: 1542:**
+        -: 1543:******************************************************************************/
+        -: 1544:int32 CFE_ES_GetGenCount(uint32 CounterId, uint32 *Count);
+        -: 1545:
+        -: 1546:
+        -: 1547:/*****************************************************************************/
+        -: 1548:/**
+        -: 1549:** \brief Get the Id associated with a generic counter name
+        -: 1550:**
+        -: 1551:** \par Description
+        -: 1552:**        This routine gets the Counter Id for a generic counter specified by name.
+        -: 1553:**
+        -: 1554:** \par Assumptions, External Events, and Notes:
+        -: 1555:**        None.
+        -: 1556:**
+        -: 1557:** \param[in]   *CounterName     The name of the Counter.
+        -: 1558:**
+        -: 1559:** \param[out]  *CounterIdPtr    The Counter Id for the given name.
+        -: 1560:**
+        -: 1561:** \returns
+        -: 1562:** \retcode #CFE_SUCCESS                \retdesc \copydoc CFE_SUCCESS            \endcode
+        -: 1563:** \retcode #CFE_ES_BAD_ARGUMENT      \retdesc \copydoc CFE_ES_BAD_ARGUMENT  \endcode
+        -: 1564:** \endreturns
+        -: 1565:**
+        -: 1566:** \sa #CFE_ES_RegisterGenCounter, #CFE_ES_DeleteGenCounter, #CFE_ES_SetGenCount, #CFE_ES_IncrementGenCounter, #CFE_ES_GetGenCount
+        -: 1567:******************************************************************************/
+        -: 1568:int32 CFE_ES_GetGenCounterIDByName(uint32 *CounterIdPtr, const char *CounterName);
+        -: 1569:
+        -: 1570:/*****************************************************************************/
+        -: 1571:/**
+        -: 1572:** \brief Process an exception detected by the underlying OS/PSP
+        -: 1573:**
+        -: 1574:** \par Description
+        -: 1575:**        This hook routine is called from the PSP when an exception occurs
+        -: 1576:**
+        -: 1577:** \par Assumptions, External Events, and Notes:
+        -: 1578:**        None.
+        -: 1579:**
+        -: 1580:** \param[in]   HostTaskId       The OS (not OSAL) task ID
+        -: 1581:** \param[in]   ReasonString     Identifier from PSP
+        -: 1582:** \param[in]   ContextPointer   Context data from PSP
+        -: 1583:** \param[in]   ContextSize      Size of context data from PSP
+        -: 1584:**
+        -: 1585:******************************************************************************/
+        -: 1586:void CFE_ES_ProcessCoreException(uint32  HostTaskId,     const char *ReasonString,
+        -: 1587:                                 const uint32 *ContextPointer, uint32 ContextSize);
+        -: 1588:
+        -: 1589:
+        -: 1590:
+        -: 1591:#endif  /* _cfe_es_ */

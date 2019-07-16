@@ -1,0 +1,35 @@
+\section*{Initialization }
+
+On initialization, S\-B\-N\-: 
+\begin{DoxyEnumerate}
+\item loads the module configuration file(s) from non-\/volatile memory and/or the filesystem 
+\item dynamically loads the protocol module(s) and calls their initialization function(s) 
+\item loads the peer configuration file(s) from non-\/volatile memory and/or the filesystem 
+\item creates a message pipe for messages relevant to each peer 
+\item clears the housekeeping telemetry 
+\item registers for c\-F\-E event services 
+\item creates a pipe to receive subscription messages 
+\item creates its software bus command message pipe 
+\item and subscribes to command messages
+
+\section*{Resets}
+
+
+
+On a Power-\/\-On or Processor reset all connections with peers are terminated. All subscriptions are lost and need to be recreated during initialization.
+
+\section*{S\-B\-N-\/\-S\-B Interface}
+
+
+
+ \section*{Protocol Port Message Processing}
+
+\subsection*{Announce Message Processing}
+
+ \subsection*{Heartbeat Message Processing}
+
+ \section*{Data Port Message Processing}
+
+ Next\-: \hyperlink{cfssbnmsgs}{C\-F\-S Software Bus Network Message Types} \par
+ Prev\-: \hyperlink{cfssbnovr}{C\-F\-S Software Bus Network Overview} 
+\end{DoxyEnumerate}

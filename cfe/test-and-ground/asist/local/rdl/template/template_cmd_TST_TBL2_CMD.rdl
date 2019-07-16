@@ -1,0 +1,49 @@
+!===============================================================================
+!                Originator:      S. Applebee
+!                Responsible SC:  name           phone
+!                Responsible CSE: name           phone
+!
+!                  $sc $cpu TBL2 Test App Commands
+!                  ================================
+!
+!       Packet Application ID: nnnn
+!       Packet Title: $sc $cpu TBL2 Test App Commands
+!       Packet Source:
+!
+!       HISTORY:
+!
+!  05NOV05     SMA          : Initial
+!  27AUG14     WFM          : Removed TBL_NAME_LEN #define and added comments
+!  24OCT17     WFM          : Updated for cFE 6.6
+!
+!===============================================================================
+!
+!! TBL_NAME_LEN is defined in the cfe_cmd_types.rdl file
+!
+#include "cfe_mission_cfg.h"
+
+CLASS Pxxxx APID=nnnn, DESC="$sc $cpu TBL2 Test App Commands"
+!
+  CMD  $sc_$cpu_TST_TBL2_NOOP        	FCTN=0, DESC="$sc $cpu TBL2 Test App no-operation command code"
+!
+  CMD  $sc_$cpu_TST_TBL2_RESETCTRS	FCTN=1, DESC="$sc $cpu TBL2 Test App reset counters command code"
+!
+  CMDS  $sc_$cpu_TST_TBL2_GetTblAddr    FCTN=2, DESC="$sc $cpu TBL2 Test App get table address command code"
+    CHAR  GTablename[CFE_MISSION_TBL_MAX_FULL_NAME_LEN]    DESC="Full name of table being registered"
+  END
+!
+  CMDS  $sc_$cpu_TST_TBL2_RelTblAddr    FCTN=3, DESC="$sc $cpu TBL2 Test App release table address command code"
+    CHAR  RATablename[CFE_MISSION_TBL_MAX_FULL_NAME_LEN]    DESC="Full name of table being registered"
+  END
+!
+  CMDS  $sc_$cpu_TST_TBL2_RelShareTbl   FCTN=4, DESC="$sc $cpu TBL2 Test App Release share table handle command code"
+    CHAR  RSTablename[CFE_MISSION_TBL_MAX_FULL_NAME_LEN]    DESC="Full name of table being registered"
+  END
+!
+  CMDS  $sc_$cpu_TST_TBL2_ShareTbl      FCTN=5, DESC="$sc $cpu TBL2 Test App register share table command code"
+    CHAR  STablename[CFE_MISSION_TBL_MAX_FULL_NAME_LEN]    DESC="Full name of table being registered"
+  END
+!
+END       !END PACKET
+!
+!======================================================================================================

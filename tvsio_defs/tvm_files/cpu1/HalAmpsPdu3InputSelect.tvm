@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"SET_HAL_PDU3_INPUT_BUS_SELECT_t",
+    "cfsStructureFileName":"habitat_cmd_codes.h",
+    "members": [
+        {"trickVar":"hal_amps_cfs.pdu3.pdu_input_select.input_bus", "trickType":"uint", "cfsVar":"INPUT_BUS", "cfsType":"uint8"}
+    ],
+    "messageId":"0xFE4D",
+    "commandCode":0,
+    "flowDirection":2
+}

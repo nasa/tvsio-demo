@@ -1,0 +1,174 @@
+        -:    0:Source:/home/mdeschu/cfe-660-ut/cfe/fsw/cfe-core/src/es/cfe_es_erlog.c
+        -:    0:Programs:11
+        -:    1:/*
+        -:    2:**  File:  
+        -:    3:**    cfe_es_erlog.c
+        -:    4:**
+        -:    5:**      Copyright (c) 2004-2012, United States government as represented by the 
+        -:    6:**      administrator of the National Aeronautics Space Administration.  
+        -:    7:**      All rights reserved. This software(cFE) was created at NASA's Goddard 
+        -:    8:**      Space Flight Center pursuant to government contracts.
+        -:    9:**
+        -:   10:**      This is governed by the NASA Open Source Agreement and may be used,
+        -:   11:**      distributed and modified only pursuant to the terms of that agreement.
+        -:   12:**
+        -:   13:**  Purpose:  
+        -:   14:**    This file implements the cFE Executive Services Exception and Reset Log functions.
+        -:   15:**
+        -:   16:**  References:
+        -:   17:**     Flight Software Branch C Coding Standard Version 1.0a
+        -:   18:**     cFE Flight Software Application Developers Guide
+        -:   19:**
+        -:   20:**  Notes:
+        -:   21:** 
+        -:   22:**  Modification History:
+        -:   23:**
+        -:   24:*/
+        -:   25:
+        -:   26:/*
+        -:   27:** Required header files.
+        -:   28:*/
+        -:   29:#include "private/cfe_private.h"
+        -:   30:#include "cfe_es.h"
+        -:   31:#include "cfe_es_apps.h"
+        -:   32:#include "cfe_es_global.h"
+        -:   33:#include "cfe_es_log.h"
+        -:   34:#include "cfe_psp.h"
+        -:   35:
+        -:   36:#include <string.h>
+        -:   37:#include <stdio.h>
+        -:   38:#include <stdarg.h>
+        -:   39:
+        -:   40:/*
+        -:   41: * Confirm the size of the error log context buffer is at least what the user asked for.
+        -:   42: *
+        -:   43: * This is to catch errors such as if the CFE_PLATFORM_ES_ER_LOG_MAX_CONTEXT_SIZE was set to a value
+        -:   44: * that is _not_ a multiple of sizeof(uint32) -- in this case the final size of the context
+        -:   45: * buffer would end up being less than what the macro was set to.
+        -:   46: */
+        -:   47:CompileTimeAssert(sizeof(CFE_ES_ResetDataPtr->ERLog[0].Context) == CFE_PLATFORM_ES_ER_LOG_MAX_CONTEXT_SIZE,  CfeEsErLogContextSizeError);
+        -:   48:
+        -:   49:
+        -:   50:/*
+        -:   51:** Function: CFE_ES_WriteToERLog
+        -:   52:**
+        -:   53:** Purpose:  Create an entry in the ES Exception and Reset Log. 
+        -:   54:**
+        -:   55:*/
+       28:   56:int32 CFE_ES_WriteToERLog( uint32 EntryType,   uint32  ResetType, uint32 ResetSubtype,
+        -:   57:                           const char  *Description, const uint32 *Context,   uint32 ContextSize )
+        -:   58:{
+        -:   59:   uint32 LogIdx;
+        -:   60:
+        -:   61:   /*
+        -:   62:   ** Code
+        -:   63:   */
+        -:   64:
+        -:   65:   /*
+        -:   66:   ** Try to clean up an invalid ER log index variable.
+        -:   67:   */
+       28:   68:   if ( CFE_ES_ResetDataPtr->ERLogIndex >= CFE_PLATFORM_ES_ER_LOG_ENTRIES )
+        -:   69:   {
+        1:   70:      CFE_ES_ResetDataPtr->ERLogIndex = 0;
+        -:   71:   }
+       28:   72:   LogIdx = CFE_ES_ResetDataPtr->ERLogIndex;
+        -:   73:
+        -:   74:   /*
+        -:   75:   ** Now that the Local Index variable is set, increment the index for the next entry.
+        -:   76:   */
+       28:   77:   CFE_ES_ResetDataPtr->ERLogIndex++;
+       28:   78:   if ( CFE_ES_ResetDataPtr->ERLogIndex >= CFE_PLATFORM_ES_ER_LOG_ENTRIES )
+        -:   79:   {
+        1:   80:      CFE_ES_ResetDataPtr->ERLogIndex = 0;
+        -:   81:   }
+        -:   82:
+        -:   83:
+        -:   84:   /*
+        -:   85:   ** Clear out the log entry we are about to use.
+        -:   86:   */
+       28:   87:   memset( &(CFE_ES_ResetDataPtr->ERLog[LogIdx]), 0, 
+        -:   88:            sizeof (CFE_ES_ERLog_t));
+        -:   89:
+        -:   90:   /*
+        -:   91:   ** Fill out the log fields
+        -:   92:   */
+       28:   93:   CFE_ES_ResetDataPtr->ERLog[LogIdx].LogEntryType = EntryType;
+       28:   94:   CFE_ES_ResetDataPtr->ERLog[LogIdx].ResetType    = ResetType;
+       28:   95:   CFE_ES_ResetDataPtr->ERLog[LogIdx].ResetSubtype = ResetSubtype;
+       28:   96:   CFE_ES_ResetDataPtr->ERLog[LogIdx].BootSource   = CFE_ES_ResetDataPtr->ResetVars.BootSource;
+       56:   97:   CFE_ES_ResetDataPtr->ERLog[LogIdx].ProcessorResetCount = 
+       28:   98:                               CFE_ES_ResetDataPtr->ResetVars.ProcessorResetCount;
+       56:   99:   CFE_ES_ResetDataPtr->ERLog[LogIdx].MaxProcessorResetCount = 
+       28:  100:                               CFE_ES_ResetDataPtr->ResetVars.MaxProcessorResetCount;
+        -:  101:
+        -:  102:   /*
+        -:  103:   ** Copy the ES Reset variables to the log (before they are modified by the log entry).
+        -:  104:   */
+       28:  105:   memcpy(&(CFE_ES_ResetDataPtr->ERLog[LogIdx].DebugVars), 
+        -:  106:          (void *)&(CFE_ES_Global.DebugVars), 
+        -:  107:          sizeof(CFE_ES_DebugVariables_t ));
+        -:  108:
+        -:  109:   /*
+        -:  110:   ** Time Stamp the log entry with the system time 
+        -:  111:   */
+       28:  112:   CFE_ES_ResetDataPtr->ERLog[LogIdx].TimeCode = CFE_TIME_GetTime(); 
+        -:  113:
+        -:  114:   /*
+        -:  115:   ** Copy the Description string to the log.
+        -:  116:   */
+       28:  117:   if ( Description  == NULL)
+        -:  118:   {
+        3:  119:      strncpy(CFE_ES_ResetDataPtr->ERLog[LogIdx].Description, "No Description String Given.", 80);
+        -:  120:   }
+        -:  121:   else
+        -:  122:   {
+       25:  123:      strncpy(CFE_ES_ResetDataPtr->ERLog[LogIdx].Description, Description, 80);
+        -:  124:   }
+        -:  125:
+        -:  126:   /*
+        -:  127:   ** In the case of an exception, copy the processor context data to the log.
+        -:  128:   */
+       36:  129:   if (Context != NULL && ContextSize > 0)
+        -:  130:   {
+        -:  131:      /*
+        -:  132:      ** Copy the processor context data (i.e. register dump).  Make sure that
+        -:  133:      ** the passed-in context_size is not greater than the declared size in
+        -:  134:      ** the ER Log log entry.
+        -:  135:      */
+        8:  136:      if ( ContextSize <= CFE_PLATFORM_ES_ER_LOG_MAX_CONTEXT_SIZE )
+        -:  137:      {
+        7:  138:         memcpy ( (CFE_ES_ResetDataPtr->ERLog[LogIdx].Context),
+        -:  139:                  (void *)Context,
+        -:  140:                  ContextSize);
+        -:  141:      }
+        -:  142:      else
+        -:  143:      {
+        1:  144:         memcpy ( (CFE_ES_ResetDataPtr->ERLog[LogIdx].Context),
+        -:  145:                  (void *)Context,
+        -:  146:                  CFE_PLATFORM_ES_ER_LOG_MAX_CONTEXT_SIZE);
+        -:  147:      }   
+        -:  148:      /*
+        -:  149:      ** Indicate that context is valid.
+        -:  150:      ** Using the original context size (not the truncated size) so it will be
+        -:  151:      ** evident if the context information was truncated.
+        -:  152:      */
+        8:  153:      CFE_ES_ResetDataPtr->ERLog[LogIdx].ContextSize = ContextSize;
+        -:  154:   }
+        -:  155:   else
+        -:  156:   {
+        -:  157:      /*
+        -:  158:      ** Context is not valid
+        -:  159:      */
+       20:  160:      CFE_ES_ResetDataPtr->ERLog[LogIdx].ContextSize = 0;
+        -:  161:   } /* end if */
+        -:  162:
+        -:  163:   /*
+        -:  164:   ** Increment the number of ER log entries made
+        -:  165:   */
+       28:  166:   CFE_ES_ResetDataPtr->ERLogEntries++;
+        -:  167:
+       28:  168:   return(CFE_SUCCESS);
+        -:  169:    
+        -:  170:} /* End of CFE_ES_WriteToERLog() */
+        -:  171:
+        -:  172:/* end of file */
