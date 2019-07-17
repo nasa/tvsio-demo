@@ -1,4 +1,4 @@
-1, SBN_UDP, /cf/sbn_udp.so, SBN_UDP_Ops;
+1, UDP, /cf/sbn_udp.so, SBN_UDP_Ops;
 !
 ! Format: ProtocolId, ModuleLocation, IFStructName
 !

@@ -1,5 +1,5 @@
 SIMIF, 1, 1, 66, 0, 0, 127.0.0.1, 15820;
-CPU3, 3, 1, 66, 0, 0, 127.0.0.1, 15823;
+CPU1, 2, 1, 66, 0, 0, 127.0.0.1, 15825;
 !
 ! The '!' is inserted after the last valid peer line,
 ! it is not a comment character.
