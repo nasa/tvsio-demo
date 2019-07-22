@@ -1102,8 +1102,8 @@ int SBN_InitInterfaces(void) {
             }/* end if */
 
             // Subscribe to all relevant message IDs here.
-            Status = CFE_SB_Subscribe(ECLS_SBN_CMD_MID, Peer->Pipe);
-            printf("Successfully subscribed Peer->Pipe to msgID 0x%04x\n", ECLS_SBN_CMD_MID);
+            Status = CFE_SB_Subscribe(SBN_CMD_MID, Peer->Pipe);
+            printf("Successfully subscribed Peer->Pipe to msgID 0x%04x\n", SBN_CMD_MID);
 
             if (Status != CFE_SUCCESS)
             {

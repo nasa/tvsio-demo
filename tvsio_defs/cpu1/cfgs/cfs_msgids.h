@@ -5,5 +5,9 @@
 #include "ci_msgids.h"
 #include "to_msgids.h"
 
+#include "auto_cfs_mids.h"
+
+#define UM_ECLSS_TLM_MID GRP1_CFS_UM_ECLSS_TLM_MID
+
 #endif /* _cfs_msgids_h */
 

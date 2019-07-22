@@ -55,8 +55,13 @@
 #define GRP1_CFS_POWER_CMD_MID                         0x9E25
 #define GRP1_CFS_POWER_SEND_HK_MID                     0x9E26
 #define GRP1_CFS_POWER_WAKEUP_MID                      0x9E27
-#define GRP1_CFS_ECLS_SBN_CMD_MID					   0x9E28
-#define GRP1_CFS_MAX_CMD_MID                           0x9E28
+#define GRP1_CFS_UM_CMD_ECLSS_PCA_MID                  0x9E28
+#define GRP1_CFS_UM_CMD_ECLSS_VPA_MID                  0x9E29
+#define GRP1_CFS_UM_CMD_ECLSS_CAL_MID                  0x9E2A
+#define GRP1_CFS_UM_CMD_SBN_ECLSS_PCA_MID              0x9E2B
+#define GRP1_CFS_UM_CMD_SBN_ECLSS_VPA_MID              0x9E2C
+#define GRP1_CFS_UM_CMD_SBN_ECLSS_CAL_MID              0x9E2D
+#define GRP1_CFS_MAX_CMD_MID                           0x9E2D
 
 #define GRP2_CFS_MIN_CMD_MID                           0x9001
 #define GRP2_CFS_CI_CMD_MID                            0x9001
@@ -98,7 +103,13 @@
 #define GRP2_CFS_POWER_CMD_MID                         0x9025
 #define GRP2_CFS_POWER_SEND_HK_MID                     0x9026
 #define GRP2_CFS_POWER_WAKEUP_MID                      0x9027
-#define GRP2_CFS_MAX_CMD_MID                           0x9027
+#define GRP2_CFS_UM_CMD_ECLSS_PCA_MID                  0x9028
+#define GRP2_CFS_UM_CMD_ECLSS_VPA_MID                  0x9029
+#define GRP2_CFS_UM_CMD_ECLSS_CAL_MID                  0x902A
+#define GRP2_CFS_UM_CMD_SBN_ECLSS_PCA_MID              0x902B
+#define GRP2_CFS_UM_CMD_SBN_ECLSS_VPA_MID              0x902C
+#define GRP2_CFS_UM_CMD_SBN_ECLSS_CAL_MID              0x902D
+#define GRP2_CFS_MAX_CMD_MID                           0x902D
 
 #define GRP3_CFS_MIN_CMD_MID                           0x9201
 #define GRP3_CFS_CI_CMD_MID                            0x9201
@@ -140,7 +151,13 @@
 #define GRP3_CFS_POWER_CMD_MID                         0x9225
 #define GRP3_CFS_POWER_SEND_HK_MID                     0x9226
 #define GRP3_CFS_POWER_WAKEUP_MID                      0x9227
-#define GRP3_CFS_MAX_CMD_MID                           0x9227
+#define GRP3_CFS_UM_CMD_ECLSS_PCA_MID                  0x9228
+#define GRP3_CFS_UM_CMD_ECLSS_VPA_MID                  0x9229
+#define GRP3_CFS_UM_CMD_ECLSS_CAL_MID                  0x922A
+#define GRP3_CFS_UM_CMD_SBN_ECLSS_PCA_MID              0x922B
+#define GRP3_CFS_UM_CMD_SBN_ECLSS_VPA_MID              0x922C
+#define GRP3_CFS_UM_CMD_SBN_ECLSS_CAL_MID              0x922D
+#define GRP3_CFS_MAX_CMD_MID                           0x922D
 
 #define GRP4_CFS_MIN_CMD_MID                           0x9401
 #define GRP4_CFS_CI_CMD_MID                            0x9401
@@ -182,7 +199,13 @@
 #define GRP4_CFS_POWER_CMD_MID                         0x9425
 #define GRP4_CFS_POWER_SEND_HK_MID                     0x9426
 #define GRP4_CFS_POWER_WAKEUP_MID                      0x9427
-#define GRP4_CFS_MAX_CMD_MID                           0x9427
+#define GRP4_CFS_UM_CMD_ECLSS_PCA_MID                  0x9428
+#define GRP4_CFS_UM_CMD_ECLSS_VPA_MID                  0x9429
+#define GRP4_CFS_UM_CMD_ECLSS_CAL_MID                  0x942A
+#define GRP4_CFS_UM_CMD_SBN_ECLSS_PCA_MID              0x942B
+#define GRP4_CFS_UM_CMD_SBN_ECLSS_VPA_MID              0x942C
+#define GRP4_CFS_UM_CMD_SBN_ECLSS_CAL_MID              0x942D
+#define GRP4_CFS_MAX_CMD_MID                           0x942D
 
 /* Telemetry message IDs */
 #define GRP1_CFS_MIN_TLM_MID                           0x0E01
@@ -210,7 +233,8 @@
 #define GRP1_CFS_LIGHTING_OUT_DATA_MID                 0x0E16
 #define GRP1_CFS_POWER_HK_TLM_MID                      0x0E17
 #define GRP1_CFS_POWER_OUT_DATA_MID                    0x0E18
-#define GRP1_CFS_MAX_TLM_MID                           0x0E18
+#define GRP1_CFS_UM_ECLSS_TLM_MID					   0x0E19
+#define GRP1_CFS_MAX_TLM_MID                           0x0E19
 
 #define GRP2_CFS_MIN_TLM_MID                           0x1001
 #define GRP2_CFS_CI_HK_TLM_MID                         0x1001
@@ -237,7 +261,8 @@
 #define GRP2_CFS_LIGHTING_OUT_DATA_MID                 0x1016
 #define GRP2_CFS_POWER_HK_TLM_MID                      0x1017
 #define GRP2_CFS_POWER_OUT_DATA_MID                    0x1018
-#define GRP2_CFS_MAX_TLM_MID                           0x1018
+#define GRP2_CFS_UM_ECLSS_TLM_MID					   0x1E19
+#define GRP2_CFS_MAX_TLM_MID                           0x1019
 
 #define GRP3_CFS_MIN_TLM_MID                           0x1201
 #define GRP3_CFS_CI_HK_TLM_MID                         0x1201
@@ -264,7 +289,8 @@
 #define GRP3_CFS_LIGHTING_OUT_DATA_MID                 0x1216
 #define GRP3_CFS_POWER_HK_TLM_MID                      0x1217
 #define GRP3_CFS_POWER_OUT_DATA_MID                    0x1218
-#define GRP3_CFS_MAX_TLM_MID                           0x1218
+#define GRP3_CFS_UM_ECLSS_TLM_MID					   0x1219
+#define GRP3_CFS_MAX_TLM_MID                           0x1219
 
 #define GRP4_CFS_MIN_TLM_MID                           0x1401
 #define GRP4_CFS_CI_HK_TLM_MID                         0x1401
@@ -291,7 +317,8 @@
 #define GRP4_CFS_LIGHTING_OUT_DATA_MID                 0x1416
 #define GRP4_CFS_POWER_HK_TLM_MID                      0x1417
 #define GRP4_CFS_POWER_OUT_DATA_MID                    0x1418
-#define GRP4_CFS_MAX_TLM_MID                           0x1418
+#define GRP4_CFS_UM_ECLSS_TLM_MID					   0x1419
+#define GRP4_CFS_MAX_TLM_MID                           0x1419
 
 #endif /* _auto_cfs_mids_h_ */
 

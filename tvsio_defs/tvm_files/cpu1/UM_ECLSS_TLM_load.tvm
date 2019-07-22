@@ -1,6 +1,6 @@
 {
 "cfsStructureType":"UM_ECLSS_TLM",
-"cfsStructureFileName":"ECLSS_types.h",
+"cfsStructureFileName":"auto_ecls_msg.h",
 "members": [
 	{"trickVar":"um_subsystems.fswIf.tlm.eclssum_subsystems.fswIf.tlm.eclss.sensorPcaPPO2","trickType":"double","cfsVar":"CAL.ENV_MON.PPO2","cfsType":"float"},
 	{"trickVar":"um_subsystems.fswIf.tlm.eclssum_subsystems.fswIf.tlm.eclss.sensorEnvMonCO2","trickType":"double","cfsVar":"CAL.ENV_MON.PPCO2","cfsType":"float"},

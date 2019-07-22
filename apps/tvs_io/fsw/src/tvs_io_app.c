@@ -208,7 +208,9 @@ int32 TryReadMessage()
     {
         if (mappings[i].flowDirection & TrickToCfs)
         {
-            void *unpackedDataBuffer = mappings[i].unpackedDataBuffer;
+            OS_printf("TVS_IO: Debug: Received message 0x%04X\n", mappings[i].msgId);
+
+	    void *unpackedDataBuffer = mappings[i].unpackedDataBuffer;
 
             byteOffset += mappings[i].unpack(unpackedDataBuffer, g_TVS_IO_AppData.frameDataBuffer + byteOffset);
 
