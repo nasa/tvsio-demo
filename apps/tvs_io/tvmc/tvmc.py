@@ -17,6 +17,8 @@ import re
 #       
 #       need to test to verify how all that works...
 
+DEBUG = True
+
 class TvsIoCodeGenerator:
 
     MaxCmdStrlenMacro = "TVS_IO_MAX_COMMAND_STRLEN" 
@@ -307,6 +309,9 @@ class TvsIoInt(TvsIoPrimitiveMapping):
         magicCode += "Integer( &data[byteOffset + 8], currentMemberLength );\n"
         magicCode += "\tbyteOffset += 8 + currentMemberLength;\n\n"
 
+        if DEBUG:
+            magicCode += '\tOS_printf("  ' + self.CfsFieldName + ' = %d\\n", mystructptr->' + self.CfsFieldName + ');\n\n'
+
         return magicCode
 
 class TvsIoFloat(TvsIoPrimitiveMapping):
@@ -323,6 +328,9 @@ class TvsIoFloat(TvsIoPrimitiveMapping):
         magicCode = "\tmystructptr->" + self.CfsFieldName + " = TVS_UnpackFloat( &data[byteOffset + 8] );\n"
         magicCode += "\tbyteOffset += 12;\n\n"
 
+        if DEBUG:
+            magicCode += '\tOS_printf("  ' + self.CfsFieldName + ' = %f\\n", mystructptr->' + self.CfsFieldName + ');\n\n'
+
         return magicCode
 
 class TvsIoDouble(TvsIoPrimitiveMapping):
@@ -338,6 +346,9 @@ class TvsIoDouble(TvsIoPrimitiveMapping):
 
         magicCode = "\tmystructptr->" + self.CfsFieldName + " = TVS_UnpackDouble( &data[byteOffset + 8] );\n"
         magicCode += "\tbyteOffset += 16;\n\n"
+
+        if DEBUG:
+            magicCode += '\tOS_printf("  ' + self.CfsFieldName + ' = %f\\n", mystructptr->' + self.CfsFieldName + ');\n\n'
 
         return magicCode
 

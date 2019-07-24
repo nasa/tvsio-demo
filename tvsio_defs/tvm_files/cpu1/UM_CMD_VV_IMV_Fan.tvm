@@ -1,0 +1,11 @@
+{
+	"cfsStructureType":"UM_ECLSS_FAN_CMD_T",
+	"cfsStructureFileName":"auto_ecls_msg.h",
+	"members": [
+		{"trickVar":"um_subsystems.fswIf.nominalCmd.eclss.vvImvFan.enable" , "trickType":"uint", "cfsVar":"PARAM_1_ENABLE", "cfsType":"uint8"},
+		{"trickVar":"um_subsystems.fswIf.nominalCmd.eclss.vvImvFan.speed" , "trickType":"double", "cfsVar":"PARAM_2_SPEED", "cfsType":"float"}
+	],
+	"messageId":"0x9E2D",
+	"commandCode":3,
+	"flowDirection":2
+}
