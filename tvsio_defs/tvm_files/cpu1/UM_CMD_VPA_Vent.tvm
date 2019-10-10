@@ -2,7 +2,7 @@
 	"cfsStructureType":"UM_ECLSS_VALVE_CMD_T",
 	"cfsStructureFileName":"auto_ecls_msg.h",
 	"members": [
-		{"trickVar":"um_subsystems.fswIf.nominalCmd.eclss.vpaVent.openFlag" , "trickType":"uint", "cfsVar":"PARAM_1_POSITION", "cfs"Type":"uint8"}
+		{"trickVar":"um_subsystems.fswIf.nominalCmd.eclss.vpaVent.openFlag" , "trickType":"uint", "cfsVar":"PARAM_1_POSITION", "cfsType":"uint8"}
 	],
 	"messageId":"0x9E2C",
 	"commandCode":0,
