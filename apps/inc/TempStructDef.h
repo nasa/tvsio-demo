@@ -5,6 +5,7 @@
 
 typedef struct
 {
+    char cfsHeader[16];
     float temperature;
 
 } Struct_Temp;
