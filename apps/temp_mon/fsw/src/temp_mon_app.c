@@ -66,21 +66,34 @@ void TEMP_MON_AppMain( void )
         g_TEMP_MON_AppData.RunStatus = CFE_ES_RunStatus_APP_ERROR;
     }
 
-    CFE_SB_Msg_t *tvsioMsgPtr = NULL;
+    CFE_SB_MsgPtr_t pMsg = NULL;
+    CFE_SB_MsgId_t msgId;
+    Struct_Temp* temp_tlm;
+    MPCV_GNC_TLM* range_tlm;
 
     /*
     ** TEMP_MON Runloop
     */
 
-    // OS_printf( "\e[33m***** TEMP_MON *****\e[39m func: %s line: %d RunStatus: %d\n", __func__, __LINE__, g_TEMP_MON_AppData.RunStatus );
     while ( CFE_ES_RunLoop(&g_TEMP_MON_AppData.RunStatus) == TRUE )
     {
-        OS_printf( "\e[33m***** TEMP_MON *****\e[39m func: %s line: %d Listening for TVS_IO data on pipe: %d\n", __func__, __LINE__, g_TEMP_MON_AppData.tvsioPipeId );
-        iStatus = CFE_SB_RcvMsg( &tvsioMsgPtr, g_TEMP_MON_AppData.tvsioPipeId, CFE_SB_PEND_FOREVER );
-
+        iStatus = CFE_SB_RcvMsg(&pMsg, g_TEMP_MON_AppData.tvsioPipeId, CFE_SB_PEND_FOREVER );
         if( iStatus == CFE_SUCCESS )
         {
-            OS_printf( "\e[32m***** TEMP_MON *****\e[39m func: %s line: %d Received TVS_IO data\n", __func__, __LINE__ );
+            msgId = CFE_SB_GetMsgId(pMsg);
+            switch(msgId)
+            {
+                case STRUCT_TEMP_MID:
+                    temp_tlm = (Struct_Temp*) pMsg;
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %f\n",msgId,temp_tlm->temperature );
+                    break;
+                case STRUCT_RPODVSM_MID:
+                    range_tlm = (MPCV_GNC_TLM*) pMsg;
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Range %f, RangeRate %f\n",msgId,range_tlm->vv_range, range_tlm->vv_rangerate );
+                    break;
+                default: 
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received invalid TLM MID (0x%04X)\n",(unsigned int)msgId);
+            }
         }
 
     }
@@ -235,6 +248,12 @@ int32 TEMP_MON_TVSIO_Init( void )
         iStatus = CFE_SB_Subscribe( STRUCT_TEMP_MID, g_TEMP_MON_AppData.tvsioPipeId);
         if ( iStatus == CFE_SUCCESS )
             OS_printf( "\tSubscribed to MID: 0x%04x\n", STRUCT_TEMP_MID );
+        else
+            OS_printf("\e[31m***** TEMP_MON *****\e[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+
+        iStatus = CFE_SB_Subscribe( STRUCT_RPODVSM_MID, g_TEMP_MON_AppData.tvsioPipeId);
+        if ( iStatus == CFE_SUCCESS )
+            OS_printf( "\tSubscribed to MID: 0x%04x\n", STRUCT_RPODVSM_MID );
         else
             OS_printf("\e[31m***** TEMP_MON *****\e[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
     } else 
