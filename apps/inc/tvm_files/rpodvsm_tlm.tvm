@@ -1,0 +1,20 @@
+{
+	"cfsStructureType": "MPCV_GNC_TLM",
+	"cfsStructureFileName": "rpodvsmStructDef.h",
+	"members": [{
+			"trickVar": "rendezvous.control.range",
+			"trickType": "double",
+			"cfsVar": "vv_range",
+			"cfsType": "double"
+		},
+		{
+			"trickVar": "rendezvous.control.range_rate",
+			"trickType": "double",
+			"cfsVar": "vv_rangerate",
+			"cfsType": "double"
+		}
+	],
+	"messageId": "0x6A01",
+	"flowDirection": 1,
+	"connectionIndex": 1
+}
