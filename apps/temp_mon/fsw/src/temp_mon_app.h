@@ -98,6 +98,8 @@ typedef struct
     uint16          tvsioPipeDepth;
     char            tvsioPipeName[OS_MAX_API_NAME];
 
+    Temp_Cmd tempOutMsg;
+
 } TEMP_MON_AppData_t;
 
 /****************************************************************************/

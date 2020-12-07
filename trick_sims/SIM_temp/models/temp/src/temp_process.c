@@ -11,5 +11,9 @@ int temp_process( TEMP* T ) {
         T->temp = 0.0;
         fprintf(stderr,"temp check\n");
     }
+    if (T->reset_flag) {
+        fprintf(stderr,"temp reset \n");
+        T->temp = 0;
+    }
     return 0;
 }

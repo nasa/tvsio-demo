@@ -94,6 +94,20 @@ void TEMP_MON_AppMain( void )
                 default: 
                     OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received invalid TLM MID (0x%04X)\n",(unsigned int)msgId);
             }
+            // Put the reset flag back
+            if (g_TEMP_MON_AppData.tempOutMsg.reset_flag= 1) {
+                g_TEMP_MON_AppData.tempOutMsg.reset_flag = 0;
+                iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
+                OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+            }
+            if (temp_tlm != NULL) {
+                if(temp_tlm->temperature > 10) {
+                    //Send reset command to tvsio to send to the sim
+                    g_TEMP_MON_AppData.tempOutMsg.reset_flag = 1;
+                    iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                }
+            }
         }
 
     }
@@ -146,6 +160,14 @@ int32 TEMP_MON_AppInit( void )
                    TRUE);
 
     /*
+    ** Initialize temp cmd packet
+    */
+    CFE_SB_InitMsg((void*)&g_TEMP_MON_AppData.tempOutMsg, 
+                   (CFE_SB_MsgId_t)STRUCT_TEMP_CMD_MID, 
+                   (uint16)sizeof(Temp_Cmd), TRUE);
+    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg, 23 /* commandCode is 23 for now */ );
+
+    /*
     ** Create Software Bus message pipe.
     */
     status = CFE_SB_CreatePipe(&g_TEMP_MON_AppData.CommandPipe,
@@ -157,7 +179,7 @@ int32 TEMP_MON_AppInit( void )
                              (unsigned long)status);
         return ( status );
     }
-
+ 
     /*
     ** Subscribe to Housekeeping request commands
     */
@@ -288,7 +310,7 @@ void TEMP_MON_ProcessCommandPacket( CFE_SB_MsgPtr_t Msg )
         default:
             CFE_EVS_SendEvent(TEMP_MON_INVALID_MSGID_ERR_EID,
                               CFE_EVS_EventType_ERROR,
-         	              "TEMP_MON: invalid command packet,MID = 0x%x",
+                              "TEMP_MON: invalid command packet,MID = 0x%x",
                               MsgId);
             break;
     }
