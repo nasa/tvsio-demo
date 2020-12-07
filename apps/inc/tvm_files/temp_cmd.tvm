@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"Temp_Cmd",
+    "cfsStructureFileName":"TempStructDef.h",
+    "members": [
+        {"trickVar":"dyn.temperature.reset_flag", "trickType":"uint", "cfsVar":"reset_flag", "cfsType":"uint8"}
+    ],
+    "messageId":"0xBABE",
+    "commandCode":23,
+    "flowDirection":2
+}
