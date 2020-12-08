@@ -6,9 +6,11 @@ PURPOSE: (Set the initial data values)
 #include "../include/range.h"
 
 /* initialization job */
-int range_init( CONTROL* C) {
+int range_init( CONTROL* C, TEMP* T) {
    
     C->range = 0.0;
     C->range_rate = 0.0;
+
+    T->temp = 0.0;
     return 0 ; 
 }

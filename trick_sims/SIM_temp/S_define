@@ -17,8 +17,9 @@ class TempSimObject : public Trick::SimObject {
         TEMP temperature;
 
         TempSimObject() {
-            ("initialization") temp_init( &temperature ) ;
-            (0.1, "scheduled") temp_process( &temperature ) ;
+            ("initialization") temp_init( &temperature );
+            (1.0, "scheduled") temp_display( &temperature );
+            (0.1, "scheduled") temp_process( &temperature );
         }
 } ;
 

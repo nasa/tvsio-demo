@@ -15,3 +15,9 @@ int range_process( CONTROL* C ) {
     }
     return 0;
 }
+
+int temp_process( TEMP* T )
+{
+    printf( "Received temp: %5.2f\n", T->temp );
+    return 0;
+}

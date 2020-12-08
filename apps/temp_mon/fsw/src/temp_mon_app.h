@@ -100,6 +100,8 @@ typedef struct
 
     Temp_Cmd tempOutMsg;
 
+    RPOD_TEMP_CMD rpodTempMsg;
+
 } TEMP_MON_AppData_t;
 
 /****************************************************************************/

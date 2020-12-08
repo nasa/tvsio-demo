@@ -11,11 +11,18 @@ typedef struct {
 
 } CONTROL ;
 
+typedef struct {
+
+    double temp;    /*  degF Temperature */
+
+} TEMP ;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int range_init(CONTROL*);
+    int range_init(CONTROL*, TEMP*);
     int range_process(CONTROL*);
+    int temp_process(TEMP*);
 #ifdef __cplusplus
 }
 #endif

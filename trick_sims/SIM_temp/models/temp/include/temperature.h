@@ -16,6 +16,7 @@ extern "C" {
 #endif
     int temp_init(TEMP*);
     int temp_process(TEMP*);
+    void temp_display(TEMP*);
 #ifdef __cplusplus
 }
 #endif

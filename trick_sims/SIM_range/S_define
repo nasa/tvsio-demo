@@ -15,10 +15,12 @@ class RangeSimObject : public Trick::SimObject {
 
     public:
         CONTROL control;
+        TEMP temp_in;
 
         RangeSimObject() {
-            ("initialization") range_init( &control ) ;
+            ("initialization") range_init( &control, &temp_in ) ;
             (0.1, "scheduled") range_process( &control ) ;
+            (1.0, "scheduled") temp_process( &temp_in ) ;
         }
 } ;
 

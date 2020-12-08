@@ -12,8 +12,13 @@ int temp_process( TEMP* T ) {
         fprintf(stderr,"temp check\n");
     }
     if (T->reset_flag) {
-        fprintf(stderr,"temp reset \n");
-        T->temp = 0;
+        fprintf(stderr,"temp reset\n");
+        T->temp = 0.0;
     }
     return 0;
+}
+
+void temp_display( TEMP* T )
+{
+    printf("Temp: %.1f\n", T->temp );
 }

@@ -85,28 +85,32 @@ void TEMP_MON_AppMain( void )
             {
                 case STRUCT_TEMP_MID:
                     temp_tlm = (Struct_Temp*) pMsg;
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %f\n",msgId,temp_tlm->temperature );
+                    if ( temp_tlm == NULL) continue;
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %.2f\n",msgId,temp_tlm->temperature );
+
+                    //Send reset command to tvsio to send to the sim
+                    if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempOutMsg.reset_flag == 0 ) {
+                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 1;
+                        iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
+                        OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                    }// Put the reset flag back
+                    else if ( g_TEMP_MON_AppData.tempOutMsg.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
+                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 0;
+                        iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
+                        OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                    }
+
+                    g_TEMP_MON_AppData.rpodTempMsg.temperature = temp_tlm->temperature;
+                    iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.rpodTempMsg);
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
+
                     break;
                 case STRUCT_RPODVSM_MID:
                     range_tlm = (MPCV_GNC_TLM*) pMsg;
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Range %f, RangeRate %f\n",msgId,range_tlm->vv_range, range_tlm->vv_rangerate );
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Range %.2f, RangeRate %.2f\n",msgId,range_tlm->vv_range, range_tlm->vv_rangerate );
                     break;
                 default: 
                     OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received invalid TLM MID (0x%04X)\n",(unsigned int)msgId);
-            }
-            // Put the reset flag back
-            if (g_TEMP_MON_AppData.tempOutMsg.reset_flag= 1) {
-                g_TEMP_MON_AppData.tempOutMsg.reset_flag = 0;
-                iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
-                OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
-            }
-            if (temp_tlm != NULL) {
-                if(temp_tlm->temperature > 10) {
-                    //Send reset command to tvsio to send to the sim
-                    g_TEMP_MON_AppData.tempOutMsg.reset_flag = 1;
-                    iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
-                }
             }
         }
 
@@ -166,6 +170,14 @@ int32 TEMP_MON_AppInit( void )
                    (CFE_SB_MsgId_t)STRUCT_TEMP_CMD_MID, 
                    (uint16)sizeof(Temp_Cmd), TRUE);
     CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg, 23 /* commandCode is 23 for now */ );
+
+    /*
+    ** Initialize Rpod temp cmd packet
+    */
+    CFE_SB_InitMsg((void*)&g_TEMP_MON_AppData.rpodTempMsg, 
+                   (CFE_SB_MsgId_t)RPOD_TEMP_CMD_MID, 
+                   (uint16)sizeof(RPOD_TEMP_CMD), TRUE);
+    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.rpodTempMsg, 24 /* commandCode is 24 for now */ );
 
     /*
     ** Create Software Bus message pipe.
