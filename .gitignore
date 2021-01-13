@@ -7,3 +7,23 @@ build/*
 *~
 *#
 .nfs*
+.vscode
+
+# Trick SIM generated files
+trick_sims/SIM_*/makefile
+trick_sims/SIM_*/S_main_*.exe
+trick_sims/SIM_*/S_sie.json
+trick_sims/SIM_*/S_sie.resource
+trick_sims/SIM_*/S_source.hh
+trick_sims/SIM_*/DP_Product/
+trick_sims/SIM_*/S_job_execution
+trick_sims/SIM_*/S_run_summary
+trick_sims/SIM_*/send_hs
+trick_sims/SIM_*/varserver_log
+trick_sims/SIM_*/S_default.dat
+trick_sims/SIM_*/RUN_*/_init_log.csv
+trick_sims/SIM_*/RUN_*/S_job_execution
+trick_sims/SIM_*/RUN_*/S_run_summary
+trick_sims/SIM_*/RUN_*/send_hs
+trick_sims/SIM_*/RUN_*/varserver_log
+trick_sims/SIM_*/trick/

@@ -1,0 +1,9 @@
+{
+    "cfsStructureType":"Struct_Temp",
+    "cfsStructureFileName":"TempStructDef.h",
+    "members": [
+        {"trickVar":"dyn.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
+    ],
+    "messageId":"0x01DD",
+    "flowDirection":1
+}

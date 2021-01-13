@@ -52,8 +52,15 @@ SET(FT_INSTALL_SUBDIR "host/functional-test")
 
 SET(TGT1_NAME cpu1)
 SET(TGT1_SYSTEM i686-pc-linux-gnu)
-SET(TGT1_APPLIST ci to io_lib sch sbn tvs_io)
-SET(TGT1_FILELIST cfe_es_startup.scr SbnModuleData.dat SbnPeerData.dat)
+SET(TGT1_APPLIST 
+    sch 
+    sbn 
+    tvs_io 
+    temp_mon)
+SET(TGT1_FILELIST 
+    cfe_es_startup.scr 
+    SbnModuleData.dat 
+    SbnPeerData.dat)
 
 include_directories(${MISSION_SOURCE_DIR}/ccdd/include)
 
