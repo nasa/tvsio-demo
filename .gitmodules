@@ -1,3 +1,4 @@
 [submodule "apps/tvs_io"]
 	path = apps/tvs_io
-	url = git@esgl-gitlab.jsc.nasa.gov:tricksbn/tvsio_app.git
+	url = git@github.com:nasa/tvsio.git
+	branch = master
