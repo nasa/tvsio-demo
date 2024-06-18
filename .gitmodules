@@ -1,4 +1,4 @@
 [submodule "apps/tvs_io"]
-	path = apps/tvs_io
+	path = apps/tvsio
 	url = git@github.com:nasa/tvsio.git
 	branch = master

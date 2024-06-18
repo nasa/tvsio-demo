@@ -27,3 +27,5 @@ trick_sims/SIM_*/RUN_*/S_run_summary
 trick_sims/SIM_*/RUN_*/send_hs
 trick_sims/SIM_*/RUN_*/varserver_log
 trick_sims/SIM_*/trick/
+trick_sims/SIM_*/trick.zip
+trick_sims/SIM_*/.trick/
