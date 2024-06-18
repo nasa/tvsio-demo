@@ -17,6 +17,12 @@
 #ifndef _cfe_mission_cfg_
 #define _cfe_mission_cfg_
 
+/**********************************
+** TVSIO CONNECTION DEFINITION INFO
+***********************************/
+#define TVS_NUM_SIM_CONN 2
+#define TVS_SERVER_IPS ((char const*[]) { "127.0.0.1", "127.0.0.1" })
+#define TVS_SERVER_PORTS (int[]) {17000, 17001}
 
 /**
 **  \cfemissioncfg Spacecraft ID
