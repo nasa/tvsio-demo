@@ -3,7 +3,7 @@ This is a sample Core Flight Software (cFS) project to demonstrate how [Trick Va
 
 This project includes two very basic Trick simulations and one basic CFS app. One trick sim is a 'temperature' data producer the other is a consumer. The CFS app, called temp_mon, will monitor the 'temperature' data and send a reset command to reset the data counter. TVS-IO app connects to the Trick Variable Server of each sim, reading and writing values as defined by the \*.tvm files. TVS-IO is the messenger that allows the two trick sims to talk to the temp_mon CFS app. 
 
-TVS-IO is included as a submodule at [`apps/tvs_io`](apps)
+TVS-IO is included as a submodule at [`apps/tvsio`](apps)
 
 ## Building
 ### CFS[^1]
