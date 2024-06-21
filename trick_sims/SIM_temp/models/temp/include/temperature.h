@@ -7,6 +7,7 @@ PURPOSE: (Do stuff)
 typedef struct {
 
     double temp;    /*  degF Temperature */
+    double speed;   /*  m/s */
     unsigned int reset_flag;
 
 } TEMP ;

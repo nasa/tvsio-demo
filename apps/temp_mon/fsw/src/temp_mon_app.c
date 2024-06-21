@@ -86,7 +86,7 @@ void TEMP_MON_AppMain( void )
                 case STRUCT_TEMP_MID:
                     temp_tlm = (Struct_Temp*) pMsg;
                     if ( temp_tlm == NULL) continue;
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %.2f\n",msgId,temp_tlm->temperature );
+                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %.2f, Speed %.2lf\n",msgId,temp_tlm->temperature,temp_tlm->speed );
 
                     //Send reset command to tvsio to send to the sim
                     if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempOutMsg.reset_flag == 0 ) {
@@ -101,6 +101,7 @@ void TEMP_MON_AppMain( void )
                     }
 
                     g_TEMP_MON_AppData.rpodTempMsg.temperature = temp_tlm->temperature;
+                    g_TEMP_MON_AppData.rpodTempMsg.speed = (float)(-1 * temp_tlm->speed);
                     iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.rpodTempMsg);
                     OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
 

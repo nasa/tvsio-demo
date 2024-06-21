@@ -8,12 +8,13 @@ typedef struct
 {
     char cfsHeader[16];
     float temperature;
+    double speed;
 
 } Struct_Temp;
 
 typedef struct
 {
-    char commandHeader[CFE_SB_CMD_HDR_SIZE];
+    char commandHeader[CFE_SB_CMD_HDR_SIZE];    // 16 bytes
     uint8 reset_flag;
 
 } Temp_Cmd;
