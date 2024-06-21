@@ -55,7 +55,7 @@ SET(TGT1_SYSTEM i686-pc-linux-gnu)
 SET(TGT1_APPLIST 
     sch 
     sbn 
-    tvs_io 
+    tvsio 
     temp_mon)
 SET(TGT1_FILELIST 
     cfe_es_startup.scr 

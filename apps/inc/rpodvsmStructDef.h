@@ -16,6 +16,7 @@ typedef struct
 {
     char commandHeader[CFE_SB_CMD_HDR_SIZE];
     float temperature;
+    float speed;
 
 } RPOD_TEMP_CMD;
 

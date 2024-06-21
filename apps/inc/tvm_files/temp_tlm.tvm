@@ -2,7 +2,8 @@
     "cfsStructureType":"Struct_Temp",
     "cfsStructureFileName":"TempStructDef.h",
     "members": [
-        {"trickVar":"dyn.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
+        {"trickVar":"dyn.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"},
+        {"trickVar":"dyn.temperature.speed", "trickType":"double", "cfsVar":"speed", "cfsType":"double"}
     ],
     "messageId":"0x01DD",
     "flowDirection":1

@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
 
     double temp;    /*  degF Temperature */
+    double speed;   /*  m/s  */
 
 } TEMP ;
 

@@ -2,7 +2,8 @@
     "cfsStructureType":"RPOD_TEMP_CMD",
     "cfsStructureFileName":"rpodvsmStructDef.h",
     "members": [
-        {"trickVar":"rendezvous.temp_in.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
+        {"trickVar":"rendezvous.temp_in.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"},
+        {"trickVar":"rendezvous.temp_in.speed", "trickType":"double", "cfsVar":"speed", "cfsType":"double"}
     ],
     "messageId":"0xBABF",
     "commandCode":24,
