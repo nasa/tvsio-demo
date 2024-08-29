@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"Struct_TempMsg",
+    "cfsStructureFileName":"TempMsgDef.h",
+    "members": [
+        {"trickVar":"dyn.message.message", "trickType":"char[50]", "cfsVar":"message", "cfsType":"char[50]"}
+    ],
+    "messageId":"0xABCD",
+    "flowDirection":1,
+    "connectionIndex": 1
+}

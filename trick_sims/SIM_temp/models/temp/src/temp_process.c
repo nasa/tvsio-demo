@@ -30,3 +30,17 @@ void temp_display( TEMP* T )
     printf("Temp: %.1f\n", T->temp );
     printf("Speed: %.1f\n", T->speed );
 }
+
+void msg_process( MESSAGE *m ) {
+    char letter = (m->message[0]) + 1;
+    if (letter > 'Z') {
+        letter = 'A';
+    }
+    for (int i = 0; i < TEMP_MSG_SIZE - 1; i++) {
+        m->message[i] = letter;
+    }
+}
+
+void msg_display( MESSAGE *m ) {
+    printf("%s\n", m->message);
+}

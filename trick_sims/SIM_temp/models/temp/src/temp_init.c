@@ -13,3 +13,10 @@ int temp_init( TEMP* T) {
     T->reset_flag = 0;
     return 0 ; 
 }
+
+void msg_init( MESSAGE* m) {
+    for (int i = 0; i < TEMP_MSG_SIZE - 1; i++) {
+        m->message[i] = 'A';
+    }
+    m->message[TEMP_MSG_SIZE] = '\0';
+}

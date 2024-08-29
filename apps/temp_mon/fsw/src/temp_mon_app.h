@@ -42,6 +42,7 @@
 #include "temp_mon_msg.h"
 #include "TempStructDef.h"
 #include "rpodvsmStructDef.h"
+#include "TempMsgDef.h"
 
 /***********************************************************************/
 #define TEMP_MON_PIPE_DEPTH                     32 /* Depth of the Command Pipe for Application */

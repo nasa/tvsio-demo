@@ -12,12 +12,21 @@ typedef struct {
 
 } TEMP ;
 
+#define TEMP_MSG_SIZE 50
+typedef struct {
+    char message[TEMP_MSG_SIZE];
+} MESSAGE;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
     int temp_init(TEMP*);
     int temp_process(TEMP*);
     void temp_display(TEMP*);
+
+    void msg_init(MESSAGE*);
+    void msg_process(MESSAGE*);
+    void msg_display(MESSAGE*);
 #ifdef __cplusplus
 }
 #endif
