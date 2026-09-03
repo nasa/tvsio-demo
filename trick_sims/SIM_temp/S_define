@@ -1,0 +1,26 @@
+/************************TRICK HEADER*************************
+PURPOSE:
+    (This S_define works with the RUN_temp input file)
+LIBRARY DEPENDENCIES:
+    (
+      (temp/src/temp_init.c)
+      (temp/src/temp_process.c)
+    )
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+##include "temp/include/temperature.h"
+
+class TempSimObject : public Trick::SimObject {
+
+    public:
+        TEMP temperature;
+
+        TempSimObject() {
+            ("initialization") temp_init( &temperature );
+            (1.0, "scheduled") temp_display( &temperature );
+            (0.1, "scheduled") temp_process( &temperature );
+        }
+} ;
+
+TempSimObject dyn ;

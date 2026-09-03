@@ -1,0 +1,27 @@
+/************************TRICK HEADER*************************
+PURPOSE:
+    (This S_define works with the RUN_range input file)
+LIBRARY DEPENDENCIES:
+    (
+      (range/src/range_init.c)
+      (range/src/range_process.c)
+    )
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+##include "range/include/range.h"
+
+class RangeSimObject : public Trick::SimObject {
+
+    public:
+        CONTROL control;
+        TEMP temp_in;
+
+        RangeSimObject() {
+            ("initialization") range_init( &control, &temp_in ) ;
+            (0.1, "scheduled") range_process( &control ) ;
+            (1.0, "scheduled") temp_process( &temp_in ) ;
+        }
+} ;
+
+RangeSimObject rendezvous ;

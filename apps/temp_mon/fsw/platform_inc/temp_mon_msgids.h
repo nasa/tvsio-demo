@@ -1,0 +1,52 @@
+/************************************************************************
+**
+**      GSC-18128-1, "Core Flight Executive Version 6.7"
+**
+**      Copyright (c) 2006-2019 United States Government as represented by
+**      the Administrator of the National Aeronautics and Space Administration.
+**      All Rights Reserved.
+**
+**      Licensed under the Apache License, Version 2.0 (the "License");
+**      you may not use this file except in compliance with the License.
+**      You may obtain a copy of the License at
+**
+**        http://www.apache.org/licenses/LICENSE-2.0
+**
+**      Unless required by applicable law or agreed to in writing, software
+**      distributed under the License is distributed on an "AS IS" BASIS,
+**      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**      See the License for the specific language governing permissions and
+**      limitations under the License.
+**
+** File: temp_mon_msgids.h
+**
+** Purpose: 
+**  Define Temperature Monitor App  Message IDs
+**
+** Notes:
+**
+**
+*************************************************************************/
+#ifndef _temp_mon_msgids_h_
+#define _temp_mon_msgids_h_
+
+#define TEMP_MON_CMD_MID            0x1890
+#define TEMP_MON_SEND_HK_MID        0x1891
+#define TEMP_MON_HK_TLM_MID		    0x0890
+
+#define RPOD_TEMP_CMD_MID 0x18B0
+#define MPCV_RPOD_TLM_MID 0x08B0
+
+#define TEMP_CONTROLLER_CMD_MID 0x18C0
+#define TEMP_CONTROLLER_TLM_MID 0x08C0
+// #define STRUCT_TEMP_MID 0x18A0
+// #define STRUCT_TEMP_CMD_MID 0x08A0
+
+// #define STRUCT_RPODVSM_MID 0x6A01
+// #define RPOD_TEMP_CMD_MID 0xBABF
+
+#endif /* _temp_mon_msgids_h_ */
+
+/************************/
+/*  End of File Comment */
+/************************/
