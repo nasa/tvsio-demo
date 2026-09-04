@@ -63,8 +63,8 @@ void TEMP_MON_AppMain( void )
 
     CFE_SB_Buffer_t * pMsg = NULL;
     CFE_SB_MsgId_t msgId;
-    Struct_Temp* temp_tlm;
-    MPCV_GNC_TLM* range_tlm;
+    TEMP_CONTROLLER_TLM_t* temp_tlm;
+    RANGER_TLM_t* range_tlm;
 
     /*
     ** TEMP_MON Runloop
@@ -79,29 +79,29 @@ void TEMP_MON_AppMain( void )
             switch(CFE_SB_MsgIdToValue(msgId))
             {
                 case TEMP_CONTROLLER_TLM_MID:
-                    temp_tlm = (Struct_Temp *)pMsg;
+                    temp_tlm = (TEMP_CONTROLLER_TLM_t *)pMsg;
                     if ( temp_tlm == NULL) continue;
                     OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
 
                     //Send reset command to tvsio to send to the sim
-                    if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempOutMsg.reset_flag == 0 ) {
-                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 1;
-                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempOutMsg.commandHeader), true);
+                    if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 0 ) {
+                        g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 1;
+                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
                         OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
                     }// Put the reset flag back
-                    else if ( g_TEMP_MON_AppData.tempOutMsg.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
-                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 0;
-                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempOutMsg.commandHeader), true);
+                    else if ( g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
+                        g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 0;
+                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
                         OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
                     }
 
-                    g_TEMP_MON_AppData.rpodTempMsg.temperature = temp_tlm->temperature;
-                    iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.rpodTempMsg.commandHeader), true);
+                    g_TEMP_MON_AppData.rangerTmpCmd.temperature = temp_tlm->temperature;
+                    iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.rangerTmpCmd.commandHeader), true);
                     OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
 
                     break;
                 case MPCV_RPOD_TLM_MID:
-                    range_tlm = (MPCV_GNC_TLM*) &(pMsg->Msg);
+                    range_tlm = (RANGER_TLM_t*) &(pMsg->Msg);
                     OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
                     break;
                 default: 
@@ -160,18 +160,18 @@ int32 TEMP_MON_AppInit( void )
     /*
     ** Initialize temp cmd packet
     */
-    CFE_MSG_Init(&g_TEMP_MON_AppData.tempOutMsg.commandHeader.Msg,
+    CFE_MSG_Init(&g_TEMP_MON_AppData.tempControllerCmd.commandHeader.Msg,
         CFE_SB_ValueToMsgId(TEMP_CONTROLLER_CMD_MID),
-        sizeof(Temp_Cmd));
-    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.tempOutMsg.commandHeader.Msg, 23 /* commandCode is 23 for now */ );
+        sizeof(g_TEMP_MON_AppData.tempControllerCmd));
+    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.tempControllerCmd.commandHeader.Msg, 23 /* commandCode is 23 for now */ );
 
     /*
     ** Initialize Rpod temp cmd packet
     */
-    CFE_MSG_Init(&g_TEMP_MON_AppData.rpodTempMsg.commandHeader.Msg, 
+    CFE_MSG_Init(&g_TEMP_MON_AppData.rangerTmpCmd.commandHeader.Msg, 
         CFE_SB_ValueToMsgId(RPOD_TEMP_CMD_MID),
-                   (uint16)sizeof(RPOD_TEMP_CMD));
-    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.rpodTempMsg.commandHeader.Msg, 24 /* commandCode is 24 for now */ );
+                   (uint16)sizeof(g_TEMP_MON_AppData.rangerTmpCmd));
+    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.rangerTmpCmd.commandHeader.Msg, 24 /* commandCode is 24 for now */ );
 
     /*
     ** Create Software Bus message pipe.

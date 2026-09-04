@@ -1,6 +1,6 @@
 {
-    "cfsStructureType":"RPOD_TEMP_CMD",
-    "cfsStructureFileName":"rpodvsmStructDef.h",
+    "cfsStructureType":"RANGER_CMD_t",
+    "cfsStructureFileName":"ranger_msg.h",
     "members": [
         {"trickVar":"rendezvous.temp_in.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
     ],

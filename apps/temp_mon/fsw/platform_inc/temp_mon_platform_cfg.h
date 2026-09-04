@@ -17,8 +17,8 @@
 **
 **=====================================================================================*/
     
-#ifndef _TEMP_MON_PLATFORM_CFG_H_
-#define _TEMP_MON_PLATFORM_CFG_H_
+#ifndef TEMP_MON_PLATFORM_H
+#define TEMP_MON_PLATFORM_H
 
 /*
 ** temp_mon Platform Configuration Parameter Definitions
@@ -28,12 +28,7 @@
 #define TEMP_MON_TLM_PIPE_DEPTH  10
 #define TEMP_MON_TVS_IO_PIPE_DEPTH 10
 
-#define TEMP_MON_RCV_THREAD_STACK_SIZE 16384
-
-
-#define TEMP_MON_FRAME_DATA_BUFFER_SIZE 81920 // 80 kB default - can be tuned up or down based on data rate per frame
-
-#endif /* _TEMP_MON_PLATFORM_CFG_H_ */
+#endif /* TEMP_MON_PLATFORM_H */
 
 /*=======================================================================================
 ** End of file temp_mon_platform_cfg.h

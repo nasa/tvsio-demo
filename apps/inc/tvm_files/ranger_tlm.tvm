@@ -1,6 +1,6 @@
 {
-	"cfsStructureType": "MPCV_GNC_TLM",
-	"cfsStructureFileName": "rpodvsmStructDef.h",
+	"cfsStructureType": "RANGER_TLM_t",
+	"cfsStructureFileName": "ranger_msg.h",
 	"members": [{
 			"trickVar": "rendezvous.control.range",
 			"trickType": "double",

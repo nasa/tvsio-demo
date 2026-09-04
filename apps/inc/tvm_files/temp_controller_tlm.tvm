@@ -1,6 +1,6 @@
 {
-    "cfsStructureType":"Struct_Temp",
-    "cfsStructureFileName":"TempStructDef.h",
+    "cfsStructureType":"TEMP_CONTROLLER_TLM_t",
+    "cfsStructureFileName":"temp_controller_msg.h",
     "members": [
         {"trickVar":"dyn.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
     ],

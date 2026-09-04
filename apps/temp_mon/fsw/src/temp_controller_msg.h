@@ -1,5 +1,7 @@
-#ifndef __TEMP_STRUCT_DEF_H__
-#define __TEMP_STRUCT_DEF_H__
+#ifndef TEMP_CONTROLLER_MSG_H
+#define TEMP_CONTROLLER_MSG_H
+
+#include "cfe_msg_api_typedefs.h"
 
 typedef struct
 {
@@ -7,7 +9,7 @@ typedef struct
     CFE_MSG_TelemetryHeader_t cfsHeader;
     float temperature;
 
-} Struct_Temp;
+} TEMP_CONTROLLER_TLM_t;
 
 typedef struct
 {
@@ -16,6 +18,6 @@ typedef struct
     uint8 reset_flag;
     uint8 pad[3];
 
-} Temp_Cmd;
+} TEMP_CONTROLLER_CMD_t;
 
 #endif

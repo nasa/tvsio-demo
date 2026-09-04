@@ -3,10 +3,10 @@ get_filename_component(TVS_IO_TVM_FILE_DIR ${MISSION_SOURCE_DIR}/apps/inc/tvm_fi
 # SET TVS_IO TVM file list for CPU1. not needed for this example but shows how to do it.
 if(TGT_NAME STREQUAL "cpu1")
 set(TVM_FILES
-rpodvsm_cmd.tvm
-rpodvsm_tlm.tvm
-temp_cmd.tvm
-temp_tlm.tvm
+ranger_cmd.tvm
+ranger_tlm.tvm
+temp_controller_cmd.tvm
+temp_controller_tlm.tvm
 )
 endif()
 

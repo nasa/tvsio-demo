@@ -26,8 +26,8 @@
 **
 *******************************************************************************/
 
-#ifndef _temp_mon_app_h_
-#define _temp_mon_app_h_
+#ifndef TEMP_MON_APP_H
+#define TEMP_MON_APP_H
 
 /*
 ** Required header files.
@@ -40,8 +40,8 @@
 
 #include "temp_mon_msgids.h"
 #include "temp_mon_msg.h"
-#include "TempStructDef.h"
-#include "rpodvsmStructDef.h"
+#include "temp_controller_msg.h"
+#include "ranger_msg.h"
 
 /***********************************************************************/
 #define TEMP_MON_PIPE_DEPTH                     32 /* Depth of the Command Pipe for Application */
@@ -88,9 +88,9 @@ typedef struct
     uint16          tvsioPipeDepth;
     char            tvsioPipeName[OS_MAX_API_NAME];
 
-    Temp_Cmd tempOutMsg;
+    TEMP_CONTROLLER_CMD_t tempControllerCmd;
 
-    RPOD_TEMP_CMD rpodTempMsg;
+    RANGER_CMD_t rangerTmpCmd;
 
 } TEMP_MON_AppData_t;
 
@@ -115,4 +115,4 @@ int32 TEMP_MON_TVSIO_Init(void);
 
 void TEMP_MON_ProcessNewData(void);
 
-#endif /* _temp_mon_app_h_ */
+#endif /* TEMP_MON_APP_H */

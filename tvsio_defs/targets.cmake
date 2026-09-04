@@ -105,3 +105,5 @@ SET(cpu1_PROCESSORID 1)
 SET(cpu1_APPLIST ci_lab to_lab sch_lab)
 SET(cpu1_FILELIST cfe_es_startup.scr)
 SET(cpu1_SYSTEM i686-linux-gnu)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

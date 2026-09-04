@@ -27,8 +27,8 @@
 **
 **
 *************************************************************************/
-#ifndef _temp_mon_msgids_h_
-#define _temp_mon_msgids_h_
+#ifndef TEMP_MON_MSGIDS_H
+#define TEMP_MON_MSGIDS_H
 
 #define TEMP_MON_CMD_MID            0x1890
 #define TEMP_MON_SEND_HK_MID        0x1891
@@ -39,13 +39,8 @@
 
 #define TEMP_CONTROLLER_CMD_MID 0x18C0
 #define TEMP_CONTROLLER_TLM_MID 0x08C0
-// #define STRUCT_TEMP_MID 0x18A0
-// #define STRUCT_TEMP_CMD_MID 0x08A0
 
-// #define STRUCT_RPODVSM_MID 0x6A01
-// #define RPOD_TEMP_CMD_MID 0xBABF
-
-#endif /* _temp_mon_msgids_h_ */
+#endif /* TEMP_MON_MSGIDS_H */
 
 /************************/
 /*  End of File Comment */

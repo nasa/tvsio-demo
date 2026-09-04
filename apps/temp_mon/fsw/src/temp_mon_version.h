@@ -27,17 +27,17 @@
 **
 **
 *************************************************************************/
-#ifndef _temp_mon_version_h_
-#define _temp_mon_version_h_
+#ifndef TEMP_MON_VERSION_H
+#define TEMP_MON_VERSION_H
 
 
-#define TEMP_MON_APP_MAJOR_VERSION              1
+#define TEMP_MON_APP_MAJOR_VERSION              2
 #define TEMP_MON_APP_MINOR_VERSION              0
 #define TEMP_MON_APP_REVISION                   0
 #define TEMP_MON_APP_MISSION_REV                0
 
 
-#endif /* _temp_mon_version_h_ */
+#endif /* TEMP_MON_VERSION_H */
 
 /************************/
 /*  End of File Comment */

@@ -26,8 +26,8 @@
 ** Notes:
 **
 *************************************************************************/
-#ifndef _temp_mon_events_h_
-#define _temp_mon_events_h_
+#ifndef TEMP_MON_EVENTS_H
+#define TEMP_MON_EVENTS_H
 
 
 #define TEMP_MON_RESERVED_EID                   0
@@ -39,7 +39,7 @@
 #define TEMP_MON_LEN_ERR_EID                    6
 #define TEMP_MON_PIPE_ERR_EID                   7
 
-#endif /* _temp_mon_events_h_ */
+#endif /* TEMP_MON_EVENTS_H */
 
 /************************/
 /*  End of File Comment */
