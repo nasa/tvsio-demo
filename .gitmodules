@@ -1,5 +1,5 @@
 [submodule "apps/tvs_io"]
-	path = apps/tvs_io
+	path = apps/tvsio
 	url = https://github.com/nasa/tvsio.git
 	branch = master
 [submodule "cfe"]
