@@ -27,8 +27,10 @@
 **
 **
 *******************************************************************************/
-#ifndef _temp_mon_msg_h_
-#define _temp_mon_msg_h_
+#ifndef TEMP_MON_MSG_H
+#define TEMP_MON_MSG_H
+
+#include "cfe_msg_api_typedefs.h"
 
 /*
 ** TEMP_MON App command codes
@@ -44,8 +46,7 @@
 */
 typedef struct
 {
-   uint8    CmdHeader[CFE_SB_CMD_HDR_SIZE];
-
+    CFE_MSG_CommandHeader_t CmdHeader;
 } TEMP_MON_NoArgsCmd_t;
 
 /*
@@ -73,12 +74,12 @@ typedef struct
 
 typedef struct
 {
-    uint8              TlmHeader[CFE_SB_TLM_HDR_SIZE];
-    TEMP_MON_HkTlm_Payload_t  Payload;
+    CFE_MSG_TelemetryHeader_t  TlmHeader;
+    TEMP_MON_HkTlm_Payload_t   Payload;
 
-} OS_PACK TEMP_MON_HkTlm_t;
+} TEMP_MON_HkTlm_t;
 
-#endif /* _temp_mon_msg_h_ */
+#endif /* TEMP_MON_MSG_H */
 
 /************************/
 /*  End of File Comment */

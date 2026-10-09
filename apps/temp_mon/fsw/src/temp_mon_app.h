@@ -26,8 +26,8 @@
 **
 *******************************************************************************/
 
-#ifndef _temp_mon_app_h_
-#define _temp_mon_app_h_
+#ifndef TEMP_MON_APP_H
+#define TEMP_MON_APP_H
 
 /*
 ** Required header files.
@@ -40,8 +40,8 @@
 
 #include "temp_mon_msgids.h"
 #include "temp_mon_msg.h"
-#include "TempStructDef.h"
-#include "rpodvsmStructDef.h"
+#include "temp_controller_msg.h"
+#include "ranger_msg.h"
 
 /***********************************************************************/
 #define TEMP_MON_PIPE_DEPTH                     32 /* Depth of the Command Pipe for Application */
@@ -49,16 +49,6 @@
 /************************************************************************
 ** Type Definitions
 *************************************************************************/
-
-/*
- * Buffer to hold telemetry data prior to sending
- * Defined as a union to ensure proper alignment for a CFE_SB_Msg_t type
- */
-typedef union
-{
-    CFE_SB_Msg_t        MsgHdr;
-    TEMP_MON_HkTlm_t      HkTlm;
-} TEMP_MON_HkBuffer_t;
 
 /*
 ** Global Data
@@ -74,7 +64,7 @@ typedef struct
     /*
     ** Housekeeping telemetry packet...
     */
-    TEMP_MON_HkBuffer_t     HkBuf;
+    TEMP_MON_HkTlm_t     HkBuf;
 
     /*
     ** Run Status variable used in the main processing loop
@@ -85,12 +75,12 @@ typedef struct
     ** Operational data (not reported in housekeeping)...
     */
     CFE_SB_PipeId_t    CommandPipe;
-    CFE_SB_MsgPtr_t    MsgPtr;
+    CFE_SB_Buffer_t    MsgPtr;
 
     /*
     ** Initialization data (not reported in housekeeping)...
     */
-    char     PipeName[16];
+    char     PipeName[OS_MAX_API_NAME];
     uint16   PipeDepth;
 
     /* TVSIO Inbound pipe */
@@ -98,9 +88,9 @@ typedef struct
     uint16          tvsioPipeDepth;
     char            tvsioPipeName[OS_MAX_API_NAME];
 
-    Temp_Cmd tempOutMsg;
+    TEMP_CONTROLLER_CMD_t tempControllerCmd;
 
-    RPOD_TEMP_CMD rpodTempMsg;
+    RANGER_CMD_t rangerTmpCmd;
 
 } TEMP_MON_AppData_t;
 
@@ -113,16 +103,16 @@ typedef struct
 */
 void  TEMP_MON_AppMain(void);
 int32 TEMP_MON_AppInit(void);
-void  TEMP_MON_ProcessCommandPacket(CFE_SB_MsgPtr_t Msg);
-void  TEMP_MON_ProcessGroundCommand(CFE_SB_MsgPtr_t Msg);
-int32 TEMP_MON_ReportHousekeeping(const CCSDS_CommandPacket_t *Msg);
+void  TEMP_MON_ProcessCommandPacket(CFE_MSG_Message_t * Msg);
+void  TEMP_MON_ProcessGroundCommand(CFE_MSG_Message_t * Msg);
+int32 TEMP_MON_ReportHousekeeping(void);
 int32 TEMP_MON_ResetCounters(const TEMP_MON_ResetCounters_t *Msg);
 int32 TEMP_MON_Process(const TEMP_MON_Process_t *Msg);
 int32 TEMP_MON_Noop(const TEMP_MON_Noop_t *Msg);
 void  TEMP_MON_GetCrc(const char *TableName);
-boolean  TEMP_MON_VerifyCmdLength(CFE_SB_MsgPtr_t Msg, uint16 ExpectedLength);
-int32 TEMP_MON_TVSIO_Init();
+bool  TEMP_MON_VerifyCmdLength(CFE_MSG_Message_t * Msg, uint16 ExpectedLength);
+int32 TEMP_MON_TVSIO_Init(void);
 
-void TEMP_MON_ProcessNewData();
+void TEMP_MON_ProcessNewData(void);
 
-#endif /* _temp_mon_app_h_ */
+#endif /* TEMP_MON_APP_H */

@@ -27,14 +27,20 @@
 **
 **
 *************************************************************************/
-#ifndef _temp_mon_msgids_h_
-#define _temp_mon_msgids_h_
+#ifndef TEMP_MON_MSGIDS_H
+#define TEMP_MON_MSGIDS_H
 
-#define TEMP_MON_CMD_MID            0x1888
-#define TEMP_MON_SEND_HK_MID        0x1889
-#define TEMP_MON_HK_TLM_MID		    0x0886
+#define TEMP_MON_CMD_MID            0x1890
+#define TEMP_MON_SEND_HK_MID        0x1891
+#define TEMP_MON_HK_TLM_MID		    0x0890
 
-#endif /* _temp_mon_msgids_h_ */
+#define RPOD_TEMP_CMD_MID 0x18B0
+#define MPCV_RPOD_TLM_MID 0x08B0
+
+#define TEMP_CONTROLLER_CMD_MID 0x18C0
+#define TEMP_CONTROLLER_TLM_MID 0x08C0
+
+#endif /* TEMP_MON_MSGIDS_H */
 
 /************************/
 /*  End of File Comment */

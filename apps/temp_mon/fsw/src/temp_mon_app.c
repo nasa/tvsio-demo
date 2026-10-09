@@ -50,11 +50,6 @@ void TEMP_MON_AppMain( void )
     int32  iStatus;
 
     /*
-    ** Register the app with Executive services
-    */
-    CFE_ES_RegisterApp();
-
-    /*
     ** Perform application specific initialization
     ** If the Initialization fails, set the RunStatus to
     ** CFE_ES_RunStatus_APP_ERROR and the App will not enter the RunLoop
@@ -62,55 +57,55 @@ void TEMP_MON_AppMain( void )
     iStatus = TEMP_MON_AppInit();
     if (iStatus != CFE_SUCCESS)
     {
-        OS_printf( "\e[31m***** TEMP_MON *****\e[39m func: %s line: %d Failed top Init app data\n", __func__, __LINE__ );
+        OS_printf( "\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d Failed top Init app data\n", __func__, __LINE__ );
         g_TEMP_MON_AppData.RunStatus = CFE_ES_RunStatus_APP_ERROR;
     }
 
-    CFE_SB_MsgPtr_t pMsg = NULL;
+    CFE_SB_Buffer_t * pMsg = NULL;
     CFE_SB_MsgId_t msgId;
-    Struct_Temp* temp_tlm;
-    MPCV_GNC_TLM* range_tlm;
+    TEMP_CONTROLLER_TLM_t* temp_tlm;
+    RANGER_TLM_t* range_tlm;
 
     /*
     ** TEMP_MON Runloop
     */
 
-    while ( CFE_ES_RunLoop(&g_TEMP_MON_AppData.RunStatus) == TRUE )
+    while ( CFE_ES_RunLoop(&g_TEMP_MON_AppData.RunStatus) == true )
     {
-        iStatus = CFE_SB_RcvMsg(&pMsg, g_TEMP_MON_AppData.tvsioPipeId, CFE_SB_PEND_FOREVER );
+        iStatus = CFE_SB_ReceiveBuffer(&pMsg, g_TEMP_MON_AppData.tvsioPipeId, CFE_SB_PEND_FOREVER );
         if( iStatus == CFE_SUCCESS )
         {
-            msgId = CFE_SB_GetMsgId(pMsg);
-            switch(msgId)
+            CFE_MSG_GetMsgId(&pMsg->Msg, &msgId);
+            switch(CFE_SB_MsgIdToValue(msgId))
             {
-                case STRUCT_TEMP_MID:
-                    temp_tlm = (Struct_Temp*) pMsg;
+                case TEMP_CONTROLLER_TLM_MID:
+                    temp_tlm = (TEMP_CONTROLLER_TLM_t *)pMsg;
                     if ( temp_tlm == NULL) continue;
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Temp %.2f\n",msgId,temp_tlm->temperature );
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
 
                     //Send reset command to tvsio to send to the sim
-                    if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempOutMsg.reset_flag == 0 ) {
-                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 1;
-                        iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
-                        OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                    if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 0 ) {
+                        g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 1;
+                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
                     }// Put the reset flag back
-                    else if ( g_TEMP_MON_AppData.tempOutMsg.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
-                        g_TEMP_MON_AppData.tempOutMsg.reset_flag = 0;
-                        iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg);
-                        OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                    else if ( g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
+                        g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 0;
+                        iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
                     }
 
-                    g_TEMP_MON_AppData.rpodTempMsg.temperature = temp_tlm->temperature;
-                    iStatus = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.rpodTempMsg);
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
+                    g_TEMP_MON_AppData.rangerTmpCmd.temperature = temp_tlm->temperature;
+                    iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.rangerTmpCmd.commandHeader), true);
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
 
                     break;
-                case STRUCT_RPODVSM_MID:
-                    range_tlm = (MPCV_GNC_TLM*) pMsg;
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received MID 0x%04X, Range %.2f, RangeRate %.2f\n",msgId,range_tlm->vv_range, range_tlm->vv_rangerate );
+                case MPCV_RPOD_TLM_MID:
+                    range_tlm = (RANGER_TLM_t*) &(pMsg->Msg);
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
                     break;
                 default: 
-                    OS_printf( "\e[32m***** TEMP_MON *****\e[39m Received invalid TLM MID (0x%04X)\n",(unsigned int)msgId);
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received invalid TLM MID (0x%08X)\n",CFE_SB_MsgIdToValue(msgId));
             }
         }
 
@@ -143,7 +138,7 @@ int32 TEMP_MON_AppInit( void )
     */
     g_TEMP_MON_AppData.PipeDepth = TEMP_MON_PIPE_DEPTH;
 
-    strcpy(g_TEMP_MON_AppData.PipeName, "TEMP_MON_CMD_PIPE");
+    snprintf(g_TEMP_MON_AppData.PipeName, OS_MAX_API_NAME, "TEMP_MON_CMD_PIPE");
 
     /*
     ** Register the events
@@ -158,26 +153,25 @@ int32 TEMP_MON_AppInit( void )
     /*
     ** Initialize housekeeping packet (clear user data area).
     */
-    CFE_SB_InitMsg(&g_TEMP_MON_AppData.HkBuf.MsgHdr,
-                   TEMP_MON_HK_TLM_MID,
-                   sizeof(g_TEMP_MON_AppData.HkBuf),
-                   TRUE);
+    CFE_MSG_Init(&g_TEMP_MON_AppData.HkBuf.TlmHeader.Msg,
+                   CFE_SB_ValueToMsgId(TEMP_MON_HK_TLM_MID),
+                   sizeof(g_TEMP_MON_AppData.HkBuf));
 
     /*
     ** Initialize temp cmd packet
     */
-    CFE_SB_InitMsg((void*)&g_TEMP_MON_AppData.tempOutMsg, 
-                   (CFE_SB_MsgId_t)STRUCT_TEMP_CMD_MID, 
-                   (uint16)sizeof(Temp_Cmd), TRUE);
-    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.tempOutMsg, 23 /* commandCode is 23 for now */ );
+    CFE_MSG_Init(&g_TEMP_MON_AppData.tempControllerCmd.commandHeader.Msg,
+        CFE_SB_ValueToMsgId(TEMP_CONTROLLER_CMD_MID),
+        sizeof(g_TEMP_MON_AppData.tempControllerCmd));
+    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.tempControllerCmd.commandHeader.Msg, 23 /* commandCode is 23 for now */ );
 
     /*
     ** Initialize Rpod temp cmd packet
     */
-    CFE_SB_InitMsg((void*)&g_TEMP_MON_AppData.rpodTempMsg, 
-                   (CFE_SB_MsgId_t)RPOD_TEMP_CMD_MID, 
-                   (uint16)sizeof(RPOD_TEMP_CMD), TRUE);
-    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&g_TEMP_MON_AppData.rpodTempMsg, 24 /* commandCode is 24 for now */ );
+    CFE_MSG_Init(&g_TEMP_MON_AppData.rangerTmpCmd.commandHeader.Msg, 
+        CFE_SB_ValueToMsgId(RPOD_TEMP_CMD_MID),
+                   (uint16)sizeof(g_TEMP_MON_AppData.rangerTmpCmd));
+    CFE_MSG_SetFcnCode(&g_TEMP_MON_AppData.rangerTmpCmd.commandHeader.Msg, 24 /* commandCode is 24 for now */ );
 
     /*
     ** Create Software Bus message pipe.
@@ -195,7 +189,7 @@ int32 TEMP_MON_AppInit( void )
     /*
     ** Subscribe to Housekeeping request commands
     */
-    status = CFE_SB_Subscribe(TEMP_MON_SEND_HK_MID,
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(TEMP_MON_SEND_HK_MID),
                               g_TEMP_MON_AppData.CommandPipe);
     if (status != CFE_SUCCESS)
     {
@@ -207,7 +201,7 @@ int32 TEMP_MON_AppInit( void )
     /*
     ** Subscribe to ground command packets
     */
-    status = CFE_SB_Subscribe(TEMP_MON_CMD_MID,
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(TEMP_MON_CMD_MID),
                               g_TEMP_MON_AppData.CommandPipe);
     if (status != CFE_SUCCESS )
     {
@@ -263,7 +257,7 @@ int32 TEMP_MON_AppInit( void )
 /* * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * *  * *  * * * * */
 int32 TEMP_MON_TVSIO_Init( void )
 {
-    OS_printf("\e[33m***** TEMP_MON *****\e[39m func: %s line: %d\n", __func__, __LINE__);
+    OS_printf("\033'[33m***** TEMP_MON *****\033'[39m func: %s line: %d\n", __func__, __LINE__);
     int32  iStatus=CFE_SUCCESS;
 
     /* Init temperature message pipe */
@@ -279,19 +273,19 @@ int32 TEMP_MON_TVSIO_Init( void )
     if ( iStatus == CFE_SUCCESS )
     {
         /* Subscribe to TVSIO data */
-        iStatus = CFE_SB_Subscribe( STRUCT_TEMP_MID, g_TEMP_MON_AppData.tvsioPipeId);
+        iStatus = CFE_SB_Subscribe( CFE_SB_ValueToMsgId(TEMP_CONTROLLER_TLM_MID), g_TEMP_MON_AppData.tvsioPipeId);
         if ( iStatus == CFE_SUCCESS )
-            OS_printf( "\tSubscribed to MID: 0x%04x\n", STRUCT_TEMP_MID );
+            OS_printf( "\tSubscribed to MID: 0x%08X\n", TEMP_CONTROLLER_TLM_MID );
         else
-            OS_printf("\e[31m***** TEMP_MON *****\e[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
 
-        iStatus = CFE_SB_Subscribe( STRUCT_RPODVSM_MID, g_TEMP_MON_AppData.tvsioPipeId);
+        iStatus = CFE_SB_Subscribe( CFE_SB_ValueToMsgId(MPCV_RPOD_TLM_MID), g_TEMP_MON_AppData.tvsioPipeId);
         if ( iStatus == CFE_SUCCESS )
-            OS_printf( "\tSubscribed to MID: 0x%04x\n", STRUCT_RPODVSM_MID );
+            OS_printf( "\tSubscribed to MID: 0x%08X\n", MPCV_RPOD_TLM_MID );
         else
-            OS_printf("\e[31m***** TEMP_MON *****\e[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
     } else 
-        OS_printf("\e[31m***** TEMP_MON *****\e[39m func: %s line: %d: Failed to init TVS_IO pipe\n", __func__, __LINE__);
+        OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to init TVS_IO pipe\n", __func__, __LINE__);
     return iStatus;
 }
 
@@ -303,27 +297,27 @@ int32 TEMP_MON_TVSIO_Init( void )
 /*     command pipe.                                                          */
 /*                                                                            */
 /* * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * *  * *  * * * * */
-void TEMP_MON_ProcessCommandPacket( CFE_SB_MsgPtr_t Msg )
+void TEMP_MON_ProcessCommandPacket( CFE_MSG_Message_t * Msg )
 {
     CFE_SB_MsgId_t  MsgId;
 
-    MsgId = CFE_SB_GetMsgId(Msg);
+    CFE_MSG_GetMsgId(Msg, &MsgId);
 
-    switch (MsgId)
+    switch (CFE_SB_MsgIdToValue(MsgId))
     {
         case TEMP_MON_CMD_MID:
             TEMP_MON_ProcessGroundCommand(Msg);
             break;
 
         case TEMP_MON_SEND_HK_MID:
-            TEMP_MON_ReportHousekeeping((CCSDS_CommandPacket_t *)Msg);
+            TEMP_MON_ReportHousekeeping();
             break;
 
         default:
             CFE_EVS_SendEvent(TEMP_MON_INVALID_MSGID_ERR_EID,
                               CFE_EVS_EventType_ERROR,
-                              "TEMP_MON: invalid command packet,MID = 0x%x",
-                              MsgId);
+                              "TEMP_MON: invalid command packet,MID = 0x%08X",
+                              CFE_SB_MsgIdToValue(MsgId));
             break;
     }
 
@@ -336,11 +330,11 @@ void TEMP_MON_ProcessCommandPacket( CFE_SB_MsgPtr_t Msg )
 /* TEMP_MON_ProcessGroundCommand() -- TEMP_MON ground commands                */
 /*                                                                            */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
-void TEMP_MON_ProcessGroundCommand( CFE_SB_MsgPtr_t Msg )
+void TEMP_MON_ProcessGroundCommand( CFE_MSG_Message_t * Msg )
 {
-    uint16 CommandCode;
+    CFE_MSG_FcnCode_t CommandCode;
 
-    CommandCode = CFE_SB_GetCmdCode(Msg);
+    CFE_MSG_GetFcnCode(Msg, &CommandCode);
 
     /*
     ** Process "known" TEMP_MON app ground commands
@@ -393,19 +387,19 @@ void TEMP_MON_ProcessGroundCommand( CFE_SB_MsgPtr_t Msg )
 /*         telemetry, packetize it and send it to the housekeeping task via   */
 /*         the software bus                                                   */
 /* * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * *  * *  * * * * */
-int32 TEMP_MON_ReportHousekeeping( const CCSDS_CommandPacket_t *Msg )
+int32 TEMP_MON_ReportHousekeeping( void )
 {
     /*
     ** Get command execution counters...
     */
-    g_TEMP_MON_AppData.HkBuf.HkTlm.Payload.CommandErrorCounter = g_TEMP_MON_AppData.ErrCounter;
-    g_TEMP_MON_AppData.HkBuf.HkTlm.Payload.CommandCounter = g_TEMP_MON_AppData.CmdCounter;
+    g_TEMP_MON_AppData.HkBuf.Payload.CommandErrorCounter = g_TEMP_MON_AppData.ErrCounter;
+    g_TEMP_MON_AppData.HkBuf.Payload.CommandCounter = g_TEMP_MON_AppData.CmdCounter;
 
     /*
     ** Send housekeeping telemetry packet...
     */
-    CFE_SB_TimeStampMsg(&g_TEMP_MON_AppData.HkBuf.MsgHdr);
-    CFE_SB_SendMsg(&g_TEMP_MON_AppData.HkBuf.MsgHdr);
+    CFE_SB_TimeStampMsg(&g_TEMP_MON_AppData.HkBuf.TlmHeader.Msg);
+    CFE_SB_TransmitMsg(&g_TEMP_MON_AppData.HkBuf.TlmHeader.Msg, true);
 
     return CFE_SUCCESS;
 
@@ -473,29 +467,33 @@ int32  TEMP_MON_Process( const TEMP_MON_Process_t *Msg )
 /* TEMP_MON_VerifyCmdLength() -- Verify command packet length                 */
 /*                                                                            */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
-boolean TEMP_MON_VerifyCmdLength( CFE_SB_MsgPtr_t Msg, uint16 ExpectedLength )
+bool TEMP_MON_VerifyCmdLength( CFE_MSG_Message_t * Msg, uint16 ExpectedLength )
 {
-    boolean result = TRUE;
+    bool result = true;
 
-    uint16 ActualLength = CFE_SB_GetTotalMsgLength(Msg);
+    CFE_MSG_Size_t ActualLength;
+
+    CFE_MSG_GetSize(Msg, &ActualLength);
 
     /*
     ** Verify the command packet length.
     */
     if (ExpectedLength != ActualLength)
     {
-        CFE_SB_MsgId_t MessageID   = CFE_SB_GetMsgId(Msg);
-        uint16         CommandCode = CFE_SB_GetCmdCode(Msg);
+        CFE_SB_MsgId_t MessageID;
+        CFE_MSG_FcnCode_t CommandCode;
+        CFE_MSG_GetMsgId(Msg, &MessageID);
+        CFE_MSG_GetFcnCode(Msg, &CommandCode);
 
         CFE_EVS_SendEvent(TEMP_MON_LEN_ERR_EID,
                           CFE_EVS_EventType_ERROR,
-                          "Invalid Msg length: ID = 0x%X,  CC = %d, Len = %d, Expected = %d",
-                          MessageID,
+                          "Invalid Msg length: ID = 0x08%X,  CC = %d, Len = %lu, Expected = %d",
+                          CFE_SB_MsgIdToValue(MessageID),
                           CommandCode,
                           ActualLength,
                           ExpectedLength);
 
-        result = FALSE;
+        result = false;
 
         g_TEMP_MON_AppData.ErrCounter++;
     }

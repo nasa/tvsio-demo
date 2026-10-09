@@ -1,0 +1,10 @@
+{
+    "cfsStructureType":"TEMP_CONTROLLER_CMD_t",
+    "cfsStructureFileName":"temp_controller_msg.h",
+    "members": [
+        {"trickVar":"dyn.temperature.reset_flag", "trickType":"uint", "cfsVar":"reset_flag", "cfsType":"uint8"}
+    ],
+    "messageId":"0x18C0",
+    "commandCode":23,
+    "flowDirection":2
+}
