@@ -1,0 +1,22 @@
+{
+    "cfsStructureType": "GNC_THRUSTER_TLM_t",
+    "cfsStructureFileName": "gnc_prop_app_msg.h",
+    "messageId": "0x0902",
+    "flowDirection": 1,
+    "connectionIndex": 1,
+
+    "members": [
+        { "trickVar": "sim_thrusters.thr.angular_momentum[0]", "trickType": "double", "cfsVar": "amom_x", "cfsType": "double" },
+        { "trickVar": "sim_thrusters.thr.angular_momentum[1]", "trickType": "double", "cfsVar": "amom_y", "cfsType": "double" },
+        { "trickVar": "sim_thrusters.thr.angular_momentum[2]", "trickType": "double", "cfsVar": "amom_z", "cfsType": "double" },
+
+        { "trickVar": "sim_thrusters.thr.propellant_mass", "trickType": "float", "cfsVar": "prop_mass", "cfsType": "float" },
+
+        { "trickVar": "sim_thrusters.thr.valve_state[0]", "trickType": "int", "cfsVar": "valve0", "cfsType": "int" },
+        { "trickVar": "sim_thrusters.thr.valve_state[1]", "trickType": "int", "cfsVar": "valve1", "cfsType": "int" },
+        { "trickVar": "sim_thrusters.thr.valve_state[2]", "trickType": "int", "cfsVar": "valve2", "cfsType": "int" },
+        { "trickVar": "sim_thrusters.thr.valve_state[3]", "trickType": "int", "cfsVar": "valve3", "cfsType": "int" },
+
+        { "trickVar": "sim_thrusters.thr.info_msg", "trickType": "char[32]", "cfsVar": "info_msg", "cfsType": "string" }
+    ]
+}

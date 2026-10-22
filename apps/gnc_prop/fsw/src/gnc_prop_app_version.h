@@ -1,0 +1,9 @@
+#ifndef GNC_PROP_APP_VERSION_H
+#define GNC_PROP_APP_VERSION_H
+
+#define GNC_PROP_APP_MAJOR_VERSION      1
+#define GNC_PROP_APP_MINOR_VERSION      0
+#define GNC_PROP_APP_REVISION           0
+#define GNC_PROP_APP_MISSION_REV        0
+
+#endif

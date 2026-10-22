@@ -1,0 +1,20 @@
+{
+    "cfsStructureType": "GNC_THRUSTER_CMD_t",
+    "cfsStructureFileName": "gnc_prop_app_msg.h",
+    "messageId": "0x1902",
+    "flowDirection": 2,
+    "connectionIndex": 1,
+    "commandCode": 1,
+
+    "members": [
+        { "trickVar": "sim_thrusters.thr.thruster_cmd[0]", "trickType": "float", "cfsVar": "thr_cmd_0", "cfsType": "float" },
+        { "trickVar": "sim_thrusters.thr.thruster_cmd[1]", "trickType": "float", "cfsVar": "thr_cmd_1", "cfsType": "float" },
+        { "trickVar": "sim_thrusters.thr.thruster_cmd[2]", "trickType": "float", "cfsVar": "thr_cmd_2", "cfsType": "float" },
+        { "trickVar": "sim_thrusters.thr.thruster_cmd[3]", "trickType": "float", "cfsVar": "thr_cmd_3", "cfsType": "float" },
+
+        { "trickVar": "sim_thrusters.thr.enable_firing", "trickType": "int", "cfsVar": "enable_fire", "cfsType": "int" },
+        { "trickVar": "sim_thrusters.thr.fire_mode", "trickType": "int", "cfsVar": "fire_mode", "cfsType": "int" },
+
+        { "trickVar": "sim_thrusters.thr.config.id", "trickType": "int", "cfsVar": "config_id", "cfsType": "int" }
+    ]
+}

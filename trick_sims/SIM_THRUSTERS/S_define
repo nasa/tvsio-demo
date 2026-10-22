@@ -1,0 +1,25 @@
+/************************TRICK HEADER*************************
+PURPOSE:
+    Define the SIM_THRUSTERS simulation object and schedule its jobs.
+LIBRARY DEPENDENCIES:
+    (
+      (thrusters.cpp)
+    )
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+##include "thrusters.hh"
+
+class ThrusterSimObject : public Trick::SimObject {
+
+    public:
+        Thrusters thr;
+
+        ThrusterSimObject() {
+
+            ("initialization") thr.init();
+            (0.1, "scheduled") thr.update();
+        }
+};
+
+ThrusterSimObject sim_thrusters ;

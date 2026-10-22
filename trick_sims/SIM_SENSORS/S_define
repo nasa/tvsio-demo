@@ -1,0 +1,25 @@
+/************************TRICK HEADER*************************
+PURPOSE:
+    Define the SIM_SENSORS simulation object and schedule its jobs.
+LIBRARY DEPENDENCIES:
+    (
+      (sensors.cpp)
+    )
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+##include "sensors.hh"
+
+class SensorSimObject : public Trick::SimObject {
+
+    public:
+        Sensors sensors;
+
+        SensorSimObject() {
+
+            ("initialization") sensors.init();
+            (0.1, "scheduled") sensors.update();
+        }
+};
+
+SensorSimObject sim_sensors ;

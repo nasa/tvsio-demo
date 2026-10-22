@@ -1,0 +1,33 @@
+{
+    "cfsStructureType": "GNC_SENSORS_TLM_t",
+    "cfsStructureFileName": "gnc_prop_app_msg.h",
+    "messageId": "0x0901",
+    "flowDirection": 1,
+    "connectionIndex": 0,
+
+    "members": [
+        { "trickVar": "sim_sensors.sensors.gyro_rate[0]", "trickType": "double", "cfsVar": "gyro_x", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.gyro_rate[1]", "trickType": "double", "cfsVar": "gyro_y", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.gyro_rate[2]", "trickType": "double", "cfsVar": "gyro_z", "cfsType": "double" },
+
+        { "trickVar": "sim_sensors.sensors.accel[0]", "trickType": "double", "cfsVar": "accel_x", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.accel[1]", "trickType": "double", "cfsVar": "accel_y", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.accel[2]", "trickType": "double", "cfsVar": "accel_z", "cfsType": "double" },
+
+        { "trickVar": "sim_sensors.sensors.health_counter", "trickType": "int", "cfsVar": "health_counter", "cfsType": "int" },
+        { "trickVar": "sim_sensors.sensors.mode", "trickType": "int", "cfsVar": "sensor_mode", "cfsType": "int" },
+        { "trickVar": "sim_sensors.sensors.sun_visible", "trickType": "int", "cfsVar": "sun_visible", "cfsType": "int" },
+
+        { "trickVar": "sim_sensors.sensors.status_msg", "trickType": "char[32]", "cfsVar": "status_msg", "cfsType": "string" },
+
+        { "trickVar": "sim_sensors.sensors.timestamp", "trickType": "double", "cfsVar": "timestamp", "cfsType": "double" },
+
+        { "trickVar": "sim_sensors.sensors.pkt_array[0].temp", "trickType": "double", "cfsVar": "pkt0_temp", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.pkt_array[0].volt", "trickType": "double", "cfsVar": "pkt0_volt", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.pkt_array[0].fault", "trickType": "int", "cfsVar": "pkt0_fault", "cfsType": "int" },
+
+        { "trickVar": "sim_sensors.sensors.pkt_array[1].temp", "trickType": "double", "cfsVar": "pkt1_temp", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.pkt_array[1].volt", "trickType": "double", "cfsVar": "pkt1_volt", "cfsType": "double" },
+        { "trickVar": "sim_sensors.sensors.pkt_array[1].fault", "trickType": "int", "cfsVar": "pkt1_fault", "cfsType": "int" }
+    ]
+}
