@@ -21,6 +21,10 @@ class TempSimObject : public Trick::SimObject {
             (1.0, "scheduled") temp_display( &temperature );
             (0.1, "scheduled") temp_process( &temperature );
         }
+
+        // Unimplemented copy constructor and assignment operator
+        TempSimObject(const TempSimObject &) = delete;
+        TempSimObject & operator=(const TempSimObject &) = delete;
 } ;
 
-TempSimObject dyn ;
+TempSimObject temp ;

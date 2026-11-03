@@ -16,5 +16,6 @@
 	],
 	"messageId": "0x08B0",
 	"flowDirection": 1,
-	"connectionIndex": 1
+	"connectionIndex": 1,
+	"rate": 0.05
 }

@@ -81,31 +81,31 @@ void TEMP_MON_AppMain( void )
                 case TEMP_CONTROLLER_TLM_MID:
                     temp_tlm = (TEMP_CONTROLLER_TLM_t *)pMsg;
                     if ( temp_tlm == NULL) continue;
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received TEMP TLM MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
 
                     //Send reset command to tvsio to send to the sim
                     if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 0 ) {
                         g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 1;
                         iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
-                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RESET TEMP CMD MID, status = %d\n",iStatus);
                     }// Put the reset flag back
                     else if ( g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
                         g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 0;
                         iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
-                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RESET RESET Temp CMD MID, status = %d\n",iStatus);
                     }
 
                     g_TEMP_MON_AppData.rangerTmpCmd.temperature = temp_tlm->temperature;
                     iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.rangerTmpCmd.commandHeader), true);
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RANGE Temp CMD MID, status = %d\n",iStatus);
 
                     break;
                 case MPCV_RPOD_TLM_MID:
                     range_tlm = (RANGER_TLM_t*) &(pMsg->Msg);
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received RANGE TLM MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
                     break;
                 default: 
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received invalid TLM MID (0x%08X)\n",CFE_SB_MsgIdToValue(msgId));
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received invalid MID (0x%08X)\n",CFE_SB_MsgIdToValue(msgId));
             }
         }
 

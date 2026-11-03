@@ -15,6 +15,7 @@ list(APPEND TVS_IO_TVM_FILES ${TVS_IO_TVM_FILE_DIR}/${TVM_FILE})
 endforeach()
 
 list(APPEND TVS_IO_TVM_INCLUDE_DIRS
+${MISSION_DEFS}
 ${MISSION_SOURCE_DIR}/apps/inc
 ${MISSION_SOURCE_DIR}/apps/temp_mon/fsw/src
 )
