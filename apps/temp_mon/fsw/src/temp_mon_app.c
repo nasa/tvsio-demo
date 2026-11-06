@@ -240,7 +240,7 @@ int32 TEMP_MON_AppInit( void )
 /*                                                                            */
 /*  Purpose:                                                                  */
 /*     This routine initialize all pipes and variables necessary for          */
-/*     communicatins with TVS_IO                                              */
+/*     communicatins with TVSIO                                              */
 /*                                                                            */
 /*  Arguments:                                                                */
 /*    None                                                                    */
@@ -261,7 +261,7 @@ int32 TEMP_MON_TVSIO_Init( void )
     int32  iStatus=CFE_SUCCESS;
 
     /* Init temperature message pipe */
-    g_TEMP_MON_AppData.tvsioPipeDepth = TEMP_MON_TVS_IO_PIPE_DEPTH;
+    g_TEMP_MON_AppData.tvsioPipeDepth = TEMP_MON_TVSIO_PIPE_DEPTH;
     memset((void*)g_TEMP_MON_AppData.tvsioPipeName, '\0', sizeof(g_TEMP_MON_AppData.tvsioPipeName));
     strncpy(g_TEMP_MON_AppData.tvsioPipeName, "TEMP_MON_TVSIO_PIPE", OS_MAX_API_NAME-1);
 
@@ -277,15 +277,15 @@ int32 TEMP_MON_TVSIO_Init( void )
         if ( iStatus == CFE_SUCCESS )
             OS_printf( "\tSubscribed to MID: 0x%08X\n", TEMP_CONTROLLER_TLM_MID );
         else
-            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVSIO pipe\n", __func__, __LINE__);
 
         iStatus = CFE_SB_Subscribe( CFE_SB_ValueToMsgId(MPCV_RPOD_TLM_MID), g_TEMP_MON_AppData.tvsioPipeId);
         if ( iStatus == CFE_SUCCESS )
             OS_printf( "\tSubscribed to MID: 0x%08X\n", MPCV_RPOD_TLM_MID );
         else
-            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVSIO pipe\n", __func__, __LINE__);
     } else 
-        OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to init TVS_IO pipe\n", __func__, __LINE__);
+        OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to init TVSIO pipe\n", __func__, __LINE__);
     return iStatus;
 }
 
