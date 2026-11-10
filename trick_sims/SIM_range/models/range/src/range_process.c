@@ -18,6 +18,9 @@ int range_process( CONTROL* C ) {
 
 int temp_process( TEMP* T )
 {
-    printf( "Received temp: %5.2f\n", T->temp );
+    if(T->temp != T->prev_temp) {
+        printf( "Received temp: %5.2f\n", T->temp );
+        T->prev_temp = T->temp;
+    }
     return 0;
 }

@@ -2,8 +2,9 @@
     "cfsStructureType":"TEMP_CONTROLLER_TLM_t",
     "cfsStructureFileName":"temp_controller_msg.h",
     "members": [
-        {"trickVar":"dyn.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
+        {"trickVar":"temp.temperature.temp", "trickType":"double", "cfsVar":"temperature", "cfsType":"float"}
     ],
     "messageId":"0x08C0",
-    "flowDirection":1
+    "flowDirection":1,
+    "rate": 0.1
 }

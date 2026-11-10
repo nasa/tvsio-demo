@@ -22,6 +22,10 @@ class RangeSimObject : public Trick::SimObject {
             (0.1, "scheduled") range_process( &control ) ;
             (1.0, "scheduled") temp_process( &temp_in ) ;
         }
+
+        // Unimplemented copy constructor and assignment operator
+        RangeSimObject(const RangeSimObject &) = delete;
+        RangeSimObject & operator=(const RangeSimObject &) = delete;
 } ;
 
 RangeSimObject rendezvous ;

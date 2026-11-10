@@ -81,31 +81,31 @@ void TEMP_MON_AppMain( void )
                 case TEMP_CONTROLLER_TLM_MID:
                     temp_tlm = (TEMP_CONTROLLER_TLM_t *)pMsg;
                     if ( temp_tlm == NULL) continue;
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received TEMP TLM MID 0x%08X, Temp %.2f\n",CFE_SB_MsgIdToValue(msgId),temp_tlm->temperature );
 
                     //Send reset command to tvsio to send to the sim
                     if ( temp_tlm->temperature > 10 && g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 0 ) {
                         g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 1;
                         iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
-                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RESET TEMP CMD MID, status = %d\n",iStatus);
                     }// Put the reset flag back
                     else if ( g_TEMP_MON_AppData.tempControllerCmd.reset_flag == 1 && temp_tlm->temperature <= 10 ) {
                         g_TEMP_MON_AppData.tempControllerCmd.reset_flag = 0;
                         iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.tempControllerCmd.commandHeader), true);
-                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending Temp CMD MID, status = %d\n",iStatus);
+                        OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RESET RESET Temp CMD MID, status = %d\n",iStatus);
                     }
 
                     g_TEMP_MON_AppData.rangerTmpCmd.temperature = temp_tlm->temperature;
                     iStatus = CFE_SB_TransmitMsg(CFE_MSG_PTR(g_TEMP_MON_AppData.rangerTmpCmd.commandHeader), true);
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RPOD Temp CMD MID, status = %d\n",iStatus);
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Sending RANGE Temp CMD MID, status = %d\n",iStatus);
 
                     break;
                 case MPCV_RPOD_TLM_MID:
                     range_tlm = (RANGER_TLM_t*) &(pMsg->Msg);
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received RANGE TLM MID 0x%08X, Range %.2f, RangeRate %.2f\n",CFE_SB_MsgIdToValue(msgId),range_tlm->vv_range, range_tlm->vv_rangerate );
                     break;
                 default: 
-                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received invalid TLM MID (0x%08X)\n",CFE_SB_MsgIdToValue(msgId));
+                    OS_printf( "\033[32m***** TEMP_MON *****\033'[39m Received invalid MID (0x%08X)\n",CFE_SB_MsgIdToValue(msgId));
             }
         }
 
@@ -240,7 +240,7 @@ int32 TEMP_MON_AppInit( void )
 /*                                                                            */
 /*  Purpose:                                                                  */
 /*     This routine initialize all pipes and variables necessary for          */
-/*     communicatins with TVS_IO                                              */
+/*     communicatins with TVSIO                                              */
 /*                                                                            */
 /*  Arguments:                                                                */
 /*    None                                                                    */
@@ -261,7 +261,7 @@ int32 TEMP_MON_TVSIO_Init( void )
     int32  iStatus=CFE_SUCCESS;
 
     /* Init temperature message pipe */
-    g_TEMP_MON_AppData.tvsioPipeDepth = TEMP_MON_TVS_IO_PIPE_DEPTH;
+    g_TEMP_MON_AppData.tvsioPipeDepth = TEMP_MON_TVSIO_PIPE_DEPTH;
     memset((void*)g_TEMP_MON_AppData.tvsioPipeName, '\0', sizeof(g_TEMP_MON_AppData.tvsioPipeName));
     strncpy(g_TEMP_MON_AppData.tvsioPipeName, "TEMP_MON_TVSIO_PIPE", OS_MAX_API_NAME-1);
 
@@ -277,15 +277,15 @@ int32 TEMP_MON_TVSIO_Init( void )
         if ( iStatus == CFE_SUCCESS )
             OS_printf( "\tSubscribed to MID: 0x%08X\n", TEMP_CONTROLLER_TLM_MID );
         else
-            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVSIO pipe\n", __func__, __LINE__);
 
         iStatus = CFE_SB_Subscribe( CFE_SB_ValueToMsgId(MPCV_RPOD_TLM_MID), g_TEMP_MON_AppData.tvsioPipeId);
         if ( iStatus == CFE_SUCCESS )
             OS_printf( "\tSubscribed to MID: 0x%08X\n", MPCV_RPOD_TLM_MID );
         else
-            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVS_IO pipe\n", __func__, __LINE__);
+            OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to Subscribe TVSIO pipe\n", __func__, __LINE__);
     } else 
-        OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to init TVS_IO pipe\n", __func__, __LINE__);
+        OS_printf("\033'[31m***** TEMP_MON *****\033'[39m func: %s line: %d: Failed to init TVSIO pipe\n", __func__, __LINE__);
     return iStatus;
 }
 
